@@ -10,13 +10,11 @@
 #include <iostream>
 #include <string>
 #include <random>
-#include <thread>
-#include <chrono>
-#include <queue>
 //
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <unistd.h>
 //
 #include "gl_frontEnd.h"
 
@@ -37,9 +35,8 @@ TravelerSegment newTravelerSegment(const TravelerSegment& currentSeg, bool& canA
 void generateWalls(void);
 void generatePartitions(void);
 
-TravelerSegment moveSameDirection(const TravelerSegment& currentSeg, bool& canAdd);
-bool inBounds(int row, int col);
-
+void followTail(Traveler& traveler, TravelerSegment& currSeg);
+void moveTraveler(Traveler& traveler);
 #if 0
 //-----------------------------------------------------------------------------
 #pragma mark -
@@ -83,10 +80,6 @@ uniform_int_distribution<unsigned int> headsOrTails(0, 1);
 uniform_int_distribution<unsigned int> rowGenerator;
 uniform_int_distribution<unsigned int> colGenerator;
 
-// Our Defined varaibles
-int growSegment = 5;
-int counter = 0;
-
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -105,85 +98,18 @@ void drawTravelers(void)
 	//-----------------------------
 	//	You may have to sychronize things here
 	//-----------------------------
-	for (unsigned int k=0; k<travelerList.size(); k++)
-	{
-		// Draw traveler at a certain point 
-		drawTraveler(travelerList[k]);
 
+		//	here I would test if the traveler thread is still live
+        // move the traveler to the next position
 
-        TravelerSegment currSeg = travelerList[k].segmentList.back();
-        bool canAddSegment = true;
-		TravelerSegment newSeg = newTravelerSegment(currSeg, canAddSegment);
-		if (canAddSegment){
-			travelerList[k].segmentList.push_back(newSeg);
-			grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-			currSeg = newSeg;
-		}
-		else {
-			const int dr[] = {1, -1, 0, 0};
-			const int dc[] = {0, 0, -1, 1};
-			// Try to find a free space in the new direction
-			for (int i = 0; i < 4; ++i)
-			{	
-				// Bounds check 
-				if (currSeg.row + dr[i] < 0 || currSeg.row + dr[i] >= numRows || 
-					currSeg.col + dc[i] < 0 || currSeg.col + dc[i] >= numCols) 
-				{
-					continue;
-				}
+    moveTraveler(travelerList[0]);
+    //usleep(300000);
+    drawTraveler(travelerList[0]);
+    if (numTravelersDone == numTravelers){
+        cout << "All travelers have reached the exit" << endl;
+        exit(0);
+    }
 
-				if (grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
-					grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::EXIT)
-				{	
-					Direction newDir;
-					switch (i)
-					{
-						case 0:
-							newDir = Direction::NORTH;
-							break;
-						case 1:
-							newDir = Direction::SOUTH;
-							break;
-						case 2:
-							newDir= Direction::EAST;
-							break;
-						case 3:
-							newDir = Direction::WEST;
-							break;
-					}
-
-					if(grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::EXIT) 
-					{
-						TravelerSegment newSeg = {currSeg.row + dr[i], currSeg.col + dc[i], newDir};
-						travelerList[k].segmentList.push_back(newSeg);
-						cout << "Good job" << endl;
-						exit(0);
-					}
-					else
-					{
-						// Move in the new direction
-						TravelerSegment newSeg = {currSeg.row + dr[i], currSeg.col + dc[i], newDir};
-						travelerList[k].segmentList.push_back(newSeg);
-						grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-						currSeg = newSeg;
-						canAddSegment = true;
-						break;
-					}
-				}
-			}
-		}
-
-
-		// Using erase() to remove the first element unless we grow a segment
-		if (!travelerList[k].segmentList.empty() && (counter % growSegment) != 0) {
-			TravelerSegment seg = travelerList[k].segmentList[0];
-			grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
-			travelerList[k].segmentList.erase(travelerList[k].segmentList.begin());
-		}
-		counter++;
-		// uncomment if you want to add delay
-		// this_thread::sleep_for(chrono::milliseconds(500));
-	}
 }
 
 void updateMessages(void)
@@ -393,10 +319,10 @@ void initializeApplication(void)
 
 		for (unsigned int c=0; c<4; c++)
 			traveler.rgba[c] = travelerColor[k][c];
-		
+
 		travelerList.push_back(traveler);
 	}
-
+	
 	//	free array of colors
 	for (unsigned int k=0; k<numTravelers; k++)
 		delete []travelerColor[k];
@@ -700,3 +626,136 @@ void generatePartitions(void)
 	}
 }
 
+void moveTraveler(Traveler& traveler){
+
+    //  get the current position of the traveler
+    TravelerSegment currSeg = traveler.segmentList[0];
+
+    switch(currSeg.dir){
+
+        case Direction::SOUTH:
+            // check if the next position is out of bound, if it is change direction
+            if(currSeg.row == numRows-1){
+                currSeg.dir = newDirection(Direction::SOUTH);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            // check if the next position is a free space, if it is move to it
+            else if(grid[currSeg.row+1][currSeg.col] == SquareType::FREE_SQUARE){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.row = currSeg.row+1;
+                traveler.segmentList[0].row = currSeg.row;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+                followTail(traveler, currSeg);
+            }
+            // check if the next position is the exit, if it is move to it
+            else if(grid[currSeg.row+1][currSeg.col] == SquareType::EXIT){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.row = currSeg.row+1;
+                traveler.segmentList[0].row = currSeg.row;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+                numTravelersDone++;
+            }
+            else{
+                currSeg.dir = newDirection(Direction::SOUTH);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            break;
+
+        case Direction::NORTH:
+            // check if the next position is out of bound, if it is change direction
+            if(currSeg.row == 0){
+                currSeg.dir = newDirection(Direction::NORTH);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            // check if the next position is a free space, if it is move to it
+            else if(grid[currSeg.row-1][currSeg.col] == SquareType::FREE_SQUARE){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.row = currSeg.row-1;
+                traveler.segmentList[0].row = currSeg.row;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+            }
+            // check if the next position is the exit, if it is move to it
+            else if(grid[currSeg.row-1][currSeg.col] == SquareType::EXIT){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.row = currSeg.row-1;
+                traveler.segmentList[0].row = currSeg.row;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+                numTravelersDone++;
+            }
+            else{
+                currSeg.dir = newDirection(Direction::NORTH);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            break;
+
+        case Direction::EAST:
+            // check if the next position is out of bound, if it is change direction
+            if(currSeg.col == numCols-1){
+                currSeg.dir = newDirection(Direction::EAST);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            // check if the next position is a free space, if it is move to it
+            else if(grid[currSeg.row][currSeg.col+1] == SquareType::FREE_SQUARE){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.col = currSeg.col+1;
+                traveler.segmentList[0].col = currSeg.col;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+            }
+            // check if the next position is the exit, if it is move to it
+            else if(grid[currSeg.row][currSeg.col+1] == SquareType::EXIT){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.col = currSeg.col+1;
+                traveler.segmentList[0].col = currSeg.col;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+                numTravelersDone++;
+            }
+            else{
+                currSeg.dir = newDirection(Direction::EAST);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            break;
+
+        case Direction::WEST:
+            // check if the next position is out of bound, if it is change direction
+            if(currSeg.col == 0){
+                currSeg.dir = Direction::NORTH;
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            // check if the next position is a free space, if it is move to it
+            else if(grid[currSeg.row][currSeg.col-1] == SquareType::FREE_SQUARE){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.col = currSeg.col-1;
+                traveler.segmentList[0].col = currSeg.col;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+            }
+            // check if the next position is the exit, if it is move to it
+            else if(grid[currSeg.row][currSeg.col-1] == SquareType::EXIT){
+                grid[currSeg.row][currSeg.col] = SquareType::FREE_SQUARE;
+                currSeg.col = currSeg.col-1;
+                traveler.segmentList[0].col = currSeg.col;
+                grid[currSeg.row][currSeg.col] = SquareType::TRAVELER;
+                numTravelersDone++;
+            }
+            else{
+                currSeg.dir = newDirection(Direction::WEST);
+                traveler.segmentList[0].dir = currSeg.dir;
+            }
+            break;
+
+        default:
+            break;
+    }
+    return;
+
+}
+
+void followTail(Traveler& traveler, TravelerSegment& currSeg){
+    //  check if the traveler has more than one segment
+    if(traveler.segmentList.size() > 1){
+        // loop through the traveler's segments
+        for(int i = 1; i < traveler.segmentList.size(); i++){
+
+        }
+    }
+
+}
