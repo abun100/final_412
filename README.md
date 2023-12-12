@@ -1,6 +1,6 @@
 # final_412
 
-## Algorithm
+## Algorithm Version 1
 ```
 For each segment for a traveler[i]:
   if growSegment:
