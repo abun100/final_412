@@ -37,8 +37,10 @@ TravelerSegment newTravelerSegment(const TravelerSegment& currentSeg, bool& canA
 void generateWalls(void);
 void generatePartitions(void);
 
-TravelerSegment moveSameDirection(const TravelerSegment& currentSeg, bool& canAdd);
-bool inBounds(int row, int col);
+TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd);
+TravelerSegment handleObstacleCase(TravelerSegment& currentSeg);
+Direction getOppositeDir(const Direction& dir);
+void togglePauseDrawing();
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -86,6 +88,7 @@ uniform_int_distribution<unsigned int> colGenerator;
 // Our Defined varaibles
 int growSegment = 5;
 int counter = 0;
+bool pauseDrawing = false;
 
 
 #if 0
@@ -102,88 +105,90 @@ int counter = 0;
 
 void drawTravelers(void)
 {
-	//-----------------------------
-	//	You may have to sychronize things here
-	//-----------------------------
-	for (unsigned int k=0; k<travelerList.size(); k++)
-	{
-		// Draw traveler at a certain point 
-		drawTraveler(travelerList[k]);
+	
 
-
-        TravelerSegment currSeg = travelerList[k].segmentList.back();
-        bool canAddSegment = true;
-		TravelerSegment newSeg = newTravelerSegment(currSeg, canAddSegment);
-		if (canAddSegment){
-			travelerList[k].segmentList.push_back(newSeg);
-			grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-			currSeg = newSeg;
+    for (unsigned int k = 0; k < travelerList.size(); k++)
+    {	
+		if (pauseDrawing) {
+			// Pause drawing
+        	drawTraveler(travelerList[k]);
+        	return;
 		}
-		else {
-			const int dr[] = {1, -1, 0, 0};
-			const int dc[] = {0, 0, -1, 1};
-			// Try to find a free space in the new direction
-			for (int i = 0; i < 4; ++i)
-			{	
-				// Bounds check 
-				if (currSeg.row + dr[i] < 0 || currSeg.row + dr[i] >= numRows || 
-					currSeg.col + dc[i] < 0 || currSeg.col + dc[i] >= numCols) 
-				{
-					continue;
-				}
+		bool validSeg = true;
+        vector<TravelerSegment>& segments = travelerList[k].segmentList;
 
-				if (grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
-					grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::EXIT)
-				{	
-					Direction newDir;
-					switch (i)
-					{
-						case 0:
-							newDir = Direction::NORTH;
-							break;
-						case 1:
-							newDir = Direction::SOUTH;
-							break;
-						case 2:
-							newDir= Direction::EAST;
-							break;
-						case 3:
-							newDir = Direction::WEST;
-							break;
-					}
+        if (segments.empty())
+            continue;  // Skip if the segment list is empty
 
-					if(grid[currSeg.row + dr[i]][currSeg.col + dc[i]] == SquareType::EXIT) 
-					{
-						TravelerSegment newSeg = {currSeg.row + dr[i], currSeg.col + dc[i], newDir};
-						travelerList[k].segmentList.push_back(newSeg);
-						cout << "Good job" << endl;
-						exit(0);
-					}
-					else
-					{
-						// Move in the new direction
-						TravelerSegment newSeg = {currSeg.row + dr[i], currSeg.col + dc[i], newDir};
-						travelerList[k].segmentList.push_back(newSeg);
-						grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-						currSeg = newSeg;
-						canAddSegment = true;
-						break;
-					}
-				}
+        TravelerSegment frontSeg = segments[0];
+        TravelerSegment newSeg;
+
+        if (counter % growSegment == 0)
+        {
+            // Condition 1: Grow Segment
+            // Store the end segment
+            TravelerSegment endSeg = segments.back();
+
+            // Move each segment in the list
+            for (int i = segments.size() - 1; i > 0; i--)
+            {
+                segments[i] = segments[i - 1];
+            }
+
+            // Move the front segment in the opposite direction
+            newSeg = moveInOpposite(frontSeg, validSeg);
+
+			if(!validSeg) {
+				// if we're at a border or obstacle, change the new segment direciton
+				newSeg = handleObstacleCase(frontSeg);
 			}
-		}
+			segments.push_back(endSeg);
+        }
+        else
+        {
+            TravelerSegment endSeg = segments.back();
+            // Condition 2: Don't Grow Segment
+            // Move each segment in the list
+            for (int i = segments.size() - 1; i > 0; i--)
+            {
+                segments[i] = segments[i - 1];
+            }
 
+            // Move the front segment in the opposite direction
+            newSeg = moveInOpposite(frontSeg, validSeg);
 
-		// Using erase() to remove the first element unless we grow a segment
-		if (!travelerList[k].segmentList.empty() && (counter % growSegment) != 0) {
-			TravelerSegment seg = travelerList[k].segmentList[0];
-			grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
-			travelerList[k].segmentList.erase(travelerList[k].segmentList.begin());
+			if(!validSeg) {
+				// if we're at a border or obstacle, change the new segment direciton
+				newSeg = handleObstacleCase(frontSeg);
+			}
+
+			grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
+        }
+
+		Direction opposite = getOppositeDir(newSeg.dir);
+		newSeg.dir = opposite;
+
+        // Update the traveler's segment list'
+        segments[0] = newSeg;
+
+		for(auto seg : segments) {
+			cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
 		}
-		counter++;
-		// uncomment if you want to add delay
-		// this_thread::sleep_for(chrono::milliseconds(500));
-	}
+		cout << endl;
+
+        // Draw the traveler at the updated position
+        drawTraveler(travelerList[k]);
+
+		//Check if we reahed the exit
+		if(grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
+			cout << "Exit Reached!" << endl;
+			exit(0);
+		}
+    }
+
+    counter++;
+    // Uncomment if you want to add delay
+    // this_thread::sleep_for(chrono::milliseconds(500));
 }
 
 void updateMessages(void)
@@ -204,6 +209,11 @@ void updateMessages(void)
 	//	You *must* synchronize this call.
 	//---------------------------------------------------------
 	drawMessages(numMessages, message);
+}
+
+void togglePauseDrawing()
+{
+    pauseDrawing = !pauseDrawing;
 }
 
 void handleKeyboardEvent(unsigned char c, int x, int y)
@@ -228,6 +238,11 @@ void handleKeyboardEvent(unsigned char c, int x, int y)
 			speedupTravelers();
 			ok = 1;
 			break;
+		// Toggle pause drawing when 'p' key is pressed
+        case 'p':
+            togglePauseDrawing();
+            ok = 1;
+            break;
 
 		default:
 			ok = 1;
@@ -311,6 +326,7 @@ int main(int argc, char* argv[])
 	//	This will probably never be executed (the exit point will be in one of the
 	//	call back functions).
 	return 0;
+
 }
 
 
@@ -401,6 +417,7 @@ void initializeApplication(void)
 	for (unsigned int k=0; k<numTravelers; k++)
 		delete []travelerColor[k];
 	delete []travelerColor;
+
 }
 
 
@@ -700,3 +717,167 @@ void generatePartitions(void)
 	}
 }
 
+TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd)
+{
+	TravelerSegment newSeg;
+	switch (currentSeg.dir)
+	{
+		case Direction::NORTH:
+			if (	currentSeg.row < numRows-1 &&
+					(grid[currentSeg.row+1][currentSeg.col] == SquareType::FREE_SQUARE ||
+					 grid[currentSeg.row+1][currentSeg.col] == SquareType::EXIT))
+			{	
+				newSeg.row = currentSeg.row+1;
+				newSeg.col = currentSeg.col;
+				newSeg.dir = Direction::NORTH;
+				canAdd = true;
+				if(grid[newSeg.row][newSeg.col] == SquareType::EXIT) {
+					break;
+				}
+				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+			}
+			else {
+				canAdd = false;
+			}
+			break;
+
+		case Direction::SOUTH:
+			if (	currentSeg.row > 0 &&
+					(grid[currentSeg.row-1][currentSeg.col] == SquareType::FREE_SQUARE ||
+					 grid[currentSeg.row-1][currentSeg.col] == SquareType::EXIT))
+			{
+				newSeg.row = currentSeg.row-1;
+				newSeg.col = currentSeg.col;
+				newSeg.dir = Direction::SOUTH;
+				canAdd = true;
+				if(grid[newSeg.row][newSeg.col] == SquareType::EXIT) {
+					break;
+				}
+				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+			}
+			else {
+				canAdd = false;
+			}
+			break;
+
+		case Direction::WEST:
+			if (	currentSeg.col < numCols-1 &&
+					(grid[currentSeg.row][currentSeg.col+1] == SquareType::FREE_SQUARE ||
+					 grid[currentSeg.row][currentSeg.col+1] == SquareType::EXIT))
+			{
+				newSeg.row = currentSeg.row;
+				newSeg.col = currentSeg.col+1;
+				newSeg.dir = Direction::WEST;
+				canAdd = true;
+				if(grid[newSeg.row][newSeg.col] == SquareType::EXIT) {
+					break;
+				}
+				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+			}
+			else {
+				canAdd = false;
+			}
+			break;
+
+		case Direction::EAST:
+			if (	currentSeg.col > 0 &&
+					(grid[currentSeg.row][currentSeg.col-1] == SquareType::FREE_SQUARE ||
+					 grid[currentSeg.row][currentSeg.col-1] == SquareType::EXIT))
+			{
+				newSeg.row = currentSeg.row;
+				newSeg.col = currentSeg.col-1;
+				newSeg.dir = Direction::EAST;
+				canAdd = true;
+				if(grid[newSeg.row][newSeg.col] == SquareType::EXIT) {
+					break;
+				}
+				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+			}
+			else {
+				canAdd = false;
+			}
+			break;
+		
+		default:
+			break;
+	}
+	
+	return newSeg;
+}
+
+TravelerSegment handleObstacleCase(TravelerSegment& currentSeg) 
+{
+	TravelerSegment newSeg;
+	//We don't want to pick a direction towards the obstacle
+	const int dr[] = {1, 0, -1, 0};
+	const int dc[] = {0, -1, 0, 1};
+	// Try to find a free space in the new direction
+	for (int i = 0; i < 4; ++i)
+	{	
+		// Bounds check 
+		if (currentSeg.row + dr[i] < 0 || currentSeg.row + dr[i] >= numRows || 
+			currentSeg.col + dc[i] < 0 || currentSeg.col + dc[i] >= numCols) 
+		{
+			continue;
+		}
+
+		if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
+			grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT)
+		{	
+			Direction newDir;
+			switch (i)
+			{
+				case 0:
+					newDir = Direction::NORTH;
+					break;
+				case 1:
+					newDir = Direction::EAST;
+					break;
+				case 2:
+					newDir= Direction::SOUTH;
+					break;
+				case 3:
+					newDir = Direction::WEST;
+					break;
+			}
+
+			if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) 
+			{
+				newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
+				break;
+			}
+			else
+			{
+				// Move in the new direction
+				newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
+				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+				currentSeg = newSeg;
+				break;
+			}
+		}
+	}
+
+	return newSeg;
+}
+
+Direction getOppositeDir(const Direction& dir) {
+	Direction opposite;
+	switch (dir)
+	{
+	case Direction::NORTH:
+		opposite = Direction::SOUTH;
+		break;
+	case Direction::SOUTH:
+		opposite = Direction::NORTH;
+		break;
+	case Direction::WEST:
+		opposite = Direction::EAST;
+		break;
+	case Direction::EAST:
+		opposite = Direction::WEST;
+		break;
+	default:
+		break;
+	}
+	return opposite;
+}
