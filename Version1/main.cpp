@@ -202,7 +202,7 @@ void drawTravelers(void)
 
     counter++;
     // Uncomment if you want to add delay
-    this_thread::sleep_for(chrono::milliseconds(500));
+    // this_thread::sleep_for(chrono::milliseconds(500));
 }
 
 void updateMessages(void)
@@ -872,6 +872,11 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
 				currentSeg = newSeg;
 				break;
 			}
+		}
+		else if (i == 3) {
+			// There's no more free spaces around the head, may as well exit here
+			cout << "TRAPPED : THERE ARE NO MORE POSSIBLE ROUTES" << endl;
+			exit(0);
 		}
 	}
 
