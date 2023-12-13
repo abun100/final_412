@@ -860,7 +860,7 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
     }
 
 
-    int i = availableDirections[0];
+    int i = availableDirections[rand() % availableDirections.size()];
     Direction newDir;
     switch (i)
     {
