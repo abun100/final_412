@@ -85,6 +85,7 @@ uniform_int_distribution<unsigned int> headsOrTails(0, 1);
 uniform_int_distribution<unsigned int> rowGenerator;
 uniform_int_distribution<unsigned int> colGenerator;
 
+
 // Our Defined varaibles
 int growSegment = 5;
 int counter = 0;
@@ -105,8 +106,6 @@ bool pauseDrawing = false;
 
 void drawTravelers(void)
 {
-	
-
     for (unsigned int k = 0; k < travelerList.size(); k++)
     {	
 		if (pauseDrawing) {
@@ -114,14 +113,24 @@ void drawTravelers(void)
         	drawTraveler(travelerList[k]);
         	return;
 		}
+		
+		// valid segments moves in free spaces, avoids obstacles
 		bool validSeg = true;
+
+		// Pointer to traveler segment list
         vector<TravelerSegment>& segments = travelerList[k].segmentList;
 
         if (segments.empty())
             continue;  // Skip if the segment list is empty
 
+		// Create copy of first segment and determine new segment
         TravelerSegment frontSeg = segments[0];
         TravelerSegment newSeg;
+
+		// The generated segments have their head direction towards prev segments
+		// Change the direction so it faces the opposite direction 
+		Direction frontSegOpposite = getOppositeDir(frontSeg.dir);
+		frontSeg.dir = frontSegOpposite;
 
         if (counter % growSegment == 0)
         {
@@ -137,17 +146,20 @@ void drawTravelers(void)
 
             // Move the front segment in the opposite direction
             newSeg = moveInOpposite(frontSeg, validSeg);
-
 			if(!validSeg) {
 				// if we're at a border or obstacle, change the new segment direciton
 				newSeg = handleObstacleCase(frontSeg);
 			}
+
+			// Keep the end segment
 			segments.push_back(endSeg);
         }
         else
         {
+			// Keep a copy of the end 
             TravelerSegment endSeg = segments.back();
-            // Condition 2: Don't Grow Segment
+            
+			// Condition 2: Don't Grow Segment
             // Move each segment in the list
             for (int i = segments.size() - 1; i > 0; i--)
             {
@@ -156,21 +168,23 @@ void drawTravelers(void)
 
             // Move the front segment in the opposite direction
             newSeg = moveInOpposite(frontSeg, validSeg);
-
 			if(!validSeg) {
 				// if we're at a border or obstacle, change the new segment direciton
 				newSeg = handleObstacleCase(frontSeg);
 			}
 
+			//As the traveler moves, we free the spaces behind 
 			grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
         }
 
+		// Get the opposite direction of head, helps render correctly
 		Direction opposite = getOppositeDir(newSeg.dir);
 		newSeg.dir = opposite;
 
         // Update the traveler's segment list'
         segments[0] = newSeg;
 
+		// prints entire traveler 
 		for(auto seg : segments) {
 			cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
 		}
@@ -188,7 +202,7 @@ void drawTravelers(void)
 
     counter++;
     // Uncomment if you want to add delay
-    // this_thread::sleep_for(chrono::milliseconds(500));
+    this_thread::sleep_for(chrono::milliseconds(500));
 }
 
 void updateMessages(void)
@@ -418,6 +432,10 @@ void initializeApplication(void)
 		delete []travelerColor[k];
 	delete []travelerColor;
 
+	cout << "orginal orientation" << endl;
+	for(auto seg : travelerList[0].segmentList) {
+		cout << "Direction: " << dirStr(seg.dir) << endl; 
+	}
 }
 
 
