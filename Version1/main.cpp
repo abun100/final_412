@@ -17,6 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <set>
 //
 #include "gl_frontEnd.h"
 
@@ -37,8 +38,10 @@ TravelerSegment newTravelerSegment(const TravelerSegment& currentSeg, bool& canA
 void generateWalls(void);
 void generatePartitions(void);
 
+void initializeUserData(int argc, char* argv[]);
 TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd);
 TravelerSegment handleObstacleCase(TravelerSegment& currentSeg);
+Direction atBorderCase(const TravelerSegment& currentSeg);
 Direction getOppositeDir(const Direction& dir);
 void togglePauseDrawing();
 
@@ -90,7 +93,7 @@ uniform_int_distribution<unsigned int> colGenerator;
 int growSegment = 5;
 int counter = 0;
 bool pauseDrawing = false;
-
+std::set<std::pair<int, int>> visitedSquares;
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -177,6 +180,10 @@ void drawTravelers(void)
 			grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
         }
 
+		// Check if we're at a certain border, 
+		// flip a coin, pick to move towards center of grid 
+		// newSeg.dir = atBorderCase(newSeg);
+
 		// Get the opposite direction of head, helps render correctly
 		Direction opposite = getOppositeDir(newSeg.dir);
 		newSeg.dir = opposite;
@@ -202,7 +209,7 @@ void drawTravelers(void)
 
     counter++;
     // Uncomment if you want to add delay
-    // this_thread::sleep_for(chrono::milliseconds(500));
+    // this_thread::sleep_for(chrono::milliseconds(250));
 }
 
 void updateMessages(void)
@@ -315,6 +322,9 @@ int main(int argc, char* argv[])
 	//	function because that function passes them to glutInit, the required call
 	//	to the initialization of the glut library.
 	initializeFrontEnd(argc, argv);
+
+	// Initialize user inputted data
+	initializeUserData(argc, argv);
 	
 	//	Now we can do application-level initialization
 	initializeApplication();
@@ -343,7 +353,13 @@ int main(int argc, char* argv[])
 
 }
 
-
+void initializeUserData(int argc, char* argv[])  
+{
+	numRows = stoi(argv[1]);
+	numCols = stoi(argv[2]);
+	numTravelers = stoi(argv[3]);
+	growSegment = stoi(argv[4]);
+}
 //==================================================================================
 //
 //	This is a function that you have to edit and add to.
@@ -432,10 +448,6 @@ void initializeApplication(void)
 		delete []travelerColor[k];
 	delete []travelerColor;
 
-	cout << "orginal orientation" << endl;
-	for(auto seg : travelerList[0].segmentList) {
-		cout << "Direction: " << dirStr(seg.dir) << endl; 
-	}
 }
 
 
@@ -830,56 +842,84 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
 	const int dr[] = {1, 0, -1, 0};
 	const int dc[] = {0, -1, 0, 1};
 	// Try to find a free space in the new direction
-	for (int i = 0; i < 4; ++i)
-	{	
-		// Bounds check 
-		if (currentSeg.row + dr[i] < 0 || currentSeg.row + dr[i] >= numRows || 
-			currentSeg.col + dc[i] < 0 || currentSeg.col + dc[i] >= numCols) 
-		{
-			continue;
-		}
 
-		if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
-			grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT)
-		{	
-			Direction newDir;
-			switch (i)
-			{
-				case 0:
-					newDir = Direction::NORTH;
-					break;
-				case 1:
-					newDir = Direction::EAST;
-					break;
-				case 2:
-					newDir= Direction::SOUTH;
-					break;
-				case 3:
-					newDir = Direction::WEST;
-					break;
-			}
+    // Define a vector to store the available directions
+    std::vector<int> availableDirections;
 
-			if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) 
-			{
-				newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-				break;
-			}
-			else
-			{
-				// Move in the new direction
-				newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-				grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-				currentSeg = newSeg;
-				break;
-			}
-		}
-		else if (i == 3) {
-			// There's no more free spaces around the head, may as well exit here
-			cout << "TRAPPED : THERE ARE NO MORE POSSIBLE ROUTES" << endl;
-			exit(0);
-		}
-	}
+    // Define our bool to check if we found an unvisited square
+    bool foundUnvisitedSquare = false;
 
+    // Add the current square to the visited squares
+    visitedSquares.insert({currentSeg.row, currentSeg.col});
+
+    for (int i = 0; i < 4; ++i) {
+        // Bounds check
+        if (currentSeg.row + dr[i] < 0 || currentSeg.row + dr[i] >= numRows ||
+            currentSeg.col + dc[i] < 0 || currentSeg.col + dc[i] >= numCols) {
+            continue;
+        }
+
+        if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
+            grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) {
+
+            // create a pair of the free square
+            std::pair<int, int> nextSquare = {currentSeg.row + dr[i], currentSeg.col + dc[i]};
+
+            // If the square is unvisited, consider it
+            if (visitedSquares.find(nextSquare) == visitedSquares.end()) {
+                foundUnvisitedSquare = true;
+                availableDirections.push_back(i);
+            }
+
+                // If the square is visited and no unvisited square has been found, consider it
+            else if (!foundUnvisitedSquare && visitedSquares.find(nextSquare) != visitedSquares.end()) {
+                cout << "Visited squares size: " << visitedSquares.size() << endl;
+                availableDirections.push_back(i);
+            }
+        }
+    }
+
+    if (availableDirections.empty())
+    {
+        // We are stuck
+        cout << "We are stuck" << endl;
+        exit(0);
+    }
+
+    cout << "Available Directions: " << availableDirections.size() << endl;
+
+
+    int i = availableDirections[rand() % availableDirections.size()];
+    Direction newDir;
+    switch (i)
+    {
+        case 0:
+            newDir = Direction::NORTH;
+            break;
+        case 1:
+            newDir = Direction::EAST;
+            break;
+        case 2:
+            newDir= Direction::SOUTH;
+            break;
+        case 3:
+            newDir = Direction::WEST;
+            break;
+    }
+
+    if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT)
+    {
+        newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
+    }
+    else
+    {
+        // Move in the new direction
+        newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
+        grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
+        currentSeg = newSeg;
+    }
+
+    cout << "Available Directions: " << availableDirections.size() << endl;
 	return newSeg;
 }
 
@@ -903,4 +943,33 @@ Direction getOppositeDir(const Direction& dir) {
 		break;
 	}
 	return opposite;
+}
+
+Direction atBorderCase(const TravelerSegment& currentSeg) 
+{
+	int coin_flip = headsOrTails(engine);
+	Direction dir; 
+
+	// If we're at a specific border, influence direction towards center of grid
+	if(coin_flip == 1 && currentSeg.row == 0 && 
+		grid[currentSeg.row+1][currentSeg.col] == SquareType::FREE_SQUARE) 
+	{
+		dir = Direction::NORTH;
+	}
+	else if(coin_flip == 1 && currentSeg.row == numRows - 1 &&
+		grid[currentSeg.row-1][currentSeg.col] == SquareType::FREE_SQUARE) 
+	{
+		dir = Direction::SOUTH;
+	}
+	else if(coin_flip == 1 && currentSeg.col == 0 &&
+		grid[currentSeg.row][currentSeg.col+1] == SquareType::FREE_SQUARE) 
+	{
+		dir = Direction::WEST;
+	}
+	else if(coin_flip == 1 && currentSeg.col == numCols - 1 &&
+		grid[currentSeg.row][currentSeg.col-1] == SquareType::FREE_SQUARE) 
+	{
+		dir = Direction::EAST;
+	}
+	return dir;
 }
