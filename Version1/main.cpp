@@ -125,11 +125,6 @@ void drawTravelers(void)
         TravelerSegment frontSeg = segments[0];
         TravelerSegment newSeg;
 
-        if (counter != 0 && counter % 200 == 0){
-            //remove the last pair from the set
-
-            visitedSquares.clear();
-        }
 
         if (counter % growSegment == 0)
         {
@@ -820,10 +815,14 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
 	const int dr[] = {1, 0, -1, 0};
 	const int dc[] = {0, -1, 0, 1};
 	// Try to find a free space in the new direction
+
+    // Define a vector to store the available directions
     std::vector<int> availableDirections;
 
+    // Define our bool to check if we found an unvisited square
     bool foundUnvisitedSquare = false;
 
+    // Add the current square to the visited squares
     visitedSquares.insert({currentSeg.row, currentSeg.col});
 
     for (int i = 0; i < 4; ++i) {
@@ -836,11 +835,13 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
         if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
             grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) {
 
+            // create a pair of the free square
             std::pair<int, int> nextSquare = {currentSeg.row + dr[i], currentSeg.col + dc[i]};
 
-            if (visitedSquares.find(nextSquare) == visitedSquares.end() && !foundUnvisitedSquare) {
+            // If the square is unvisited, consider it
+            if (visitedSquares.find(nextSquare) == visitedSquares.end()) {
                 foundUnvisitedSquare = true;
-                availableDirections.clear();  // Clear previous visited directions
+                availableDirections.clear();
                 availableDirections.push_back(i);
             }
 
@@ -858,6 +859,8 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
         cout << "We are stuck" << endl;
         exit(0);
     }
+
+    cout << "Available Directions: " << availableDirections.size() << endl;
 
 
     int i = availableDirections[rand() % availableDirections.size()];
