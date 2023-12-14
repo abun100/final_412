@@ -841,7 +841,6 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
             // If the square is unvisited, consider it
             if (visitedSquares.find(nextSquare) == visitedSquares.end()) {
                 foundUnvisitedSquare = true;
-                availableDirections.clear();
                 availableDirections.push_back(i);
             }
 
