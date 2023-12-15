@@ -165,6 +165,10 @@ void drawTravelers(void)
 			grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
         }
 
+		// Get the opposite direction of head, helps render correctly
+		Direction opposite = getOppositeDir(newSeg.dir);
+		newSeg.dir = opposite;
+
         // Update the traveler's segment list'
         segments[0] = newSeg;
 
