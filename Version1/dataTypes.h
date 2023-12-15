@@ -21,7 +21,7 @@ enum class Direction
 {
 	NORTH = 0,
 	WEST,
-	SOUTH,
+	SOUTH,	
 	EAST,
 	//
 	NUM_DIRECTIONS
