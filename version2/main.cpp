@@ -822,7 +822,13 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
 
         newSeg.row = currentSeg.row + dr[i];
         newSeg.col = currentSeg.col + dc[i];
-        if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
+
+        // check if the square is the exit
+        if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) {
+            availableDirections.push_back(i);
+            return availableDirections;
+        }
+        else if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
             grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT){
 
             // create a pair of the free square
@@ -931,7 +937,8 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 // If there are no available directions, then we are stuck
                 this_thread::sleep_for(chrono::milliseconds(500));
                 attempt++;
-                if (attempt == 5) {
+                if (attempt == 10) {
+                    // If we have tried 5 times, then we are stuck
                     travelThread->keepGoing = false;
                     break;
                 }
@@ -942,6 +949,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
             }
         }
 
+        // If we are not offically stuck, then we can move
         if(!travelThread->stuck) {
             int dir = availableDirections[rand() % availableDirections.size()];
 
@@ -997,7 +1005,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
             }
             cout << endl;
 
-            //Check if we reahed the exit
+            //Check if we reached the exit
             if (grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
                 cout << "Exit Reached!" << endl;
                 numTravelersSolved++;
