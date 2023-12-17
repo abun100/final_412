@@ -37,6 +37,7 @@ typedef struct
 	unsigned int index;
 	bool keepGoing;
     bool stuck;
+    std::set<std::pair<int, int>> visitedSquares;
 } ThreadInfo;
 
 void initializeApplication(void);
@@ -55,7 +56,7 @@ void* moveTraveler(ThreadInfo*);
 bool checkSelfCollision(const Traveler& traveler, const TravelerSegment& newSeg);
 void togglePauseDrawing();
 void join_threads(ThreadInfo* info, int numTravelers);
-std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex);
+std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, ThreadInfo* thread_info);
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -106,7 +107,7 @@ ThreadInfo* info;
 int growSegment = 5;
 vector<int> counters;
 bool pauseDrawing = false;
-std::set<std::pair<int, int>> visitedSquares;
+
 int numTravelersSolved = 0;
 
 #if 0
@@ -397,6 +398,7 @@ void initializeThreads() {
 		info[k].index = k;
 		info[k].thread_process = thread(moveTraveler, &info[k]);
 		info[k].keepGoing = true;
+        info[k].visitedSquares = std::set<std::pair<int, int>>();
 	}
 }
 
@@ -797,11 +799,16 @@ TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd, 
 	return newSeg;
 }
 
-std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex){
+std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, ThreadInfo* thread_info){
     //We don't want to pick a direction towards the obstacle
     const int dr[] = {1, 0, -1, 0};
     const int dc[] = {0, -1, 0, 1};
     // Try to find a free space in the new direction
+
+    if (thread_info == nullptr) {
+        std::cerr << "Error: thread_info is a null pointer in getAvailableDirections function." << std::endl;
+        return std::vector<int>();
+    }
 
     TravelerSegment newSeg;
     // Define a vector to store the available directions
@@ -811,7 +818,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
     bool foundUnvisitedSquare = false;
 
     // Add the current square to the visited squares
-    visitedSquares.insert({currentSeg.row, currentSeg.col});
+    thread_info->visitedSquares.insert({currentSeg.row, currentSeg.col});
 
     for (int i = 0; i < 4; ++i) {
         // Bounds check
@@ -835,14 +842,14 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
             std::pair<int, int> nextSquare = {currentSeg.row + dr[i], currentSeg.col + dc[i]};
 
             // If the square is unvisited, consider it
-            if (visitedSquares.find(nextSquare) == visitedSquares.end()) {
+            if (thread_info->visitedSquares.find(nextSquare) == thread_info->visitedSquares.end()) {
                 foundUnvisitedSquare = true;
                 availableDirections.push_back(i);
             }
 
                 // If the square is visited and no unvisited square has been found, consider it
-            else if (!foundUnvisitedSquare && visitedSquares.find(nextSquare) != visitedSquares.end()) {
-                cout << "Visited squares size: " << visitedSquares.size() << endl;
+            else if (!foundUnvisitedSquare && thread_info->visitedSquares.find(nextSquare) != thread_info->visitedSquares.end()) {
+                cout << "Visited squares size: " << thread_info->visitedSquares.size() << endl;
                 availableDirections.push_back(i);
             }
         }
@@ -932,7 +939,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
         while(travelThread->stuck){
             // Get the available directions
-            availableDirections = getAvailableDirections(frontSeg, travelThread->index);
+            availableDirections = getAvailableDirections(frontSeg, travelThread);
             if (availableDirections.size() == 0) {
                 // If there are no available directions, then we are stuck
                 this_thread::sleep_for(chrono::milliseconds(500));
