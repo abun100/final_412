@@ -1056,6 +1056,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
 void join_threads(ThreadInfo* info, int numTravelers) {
     for (int i = 0; i < numTravelers; i++) {
+		info[i].keepGoing = false;
         info[i].thread_process.join();
     }
 }
