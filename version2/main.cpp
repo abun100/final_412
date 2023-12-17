@@ -36,6 +36,7 @@ typedef struct
 	thread thread_process;
 	unsigned int index;
 	bool keepGoing;
+    bool stuck;
 } ThreadInfo;
 
 void initializeApplication(void);
@@ -48,11 +49,13 @@ void generatePartitions(void);
 void initializeUserData(int argc, char* argv[]);
 void initializeThreads();
 TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd, int travelIndex);
-TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex);
+TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex, int i);
 Direction getOppositeDir(const Direction& dir);
 void* moveTraveler(ThreadInfo*);
 bool checkSelfCollision(const Traveler& traveler, const TravelerSegment& newSeg);
 void togglePauseDrawing();
+void join_threads(ThreadInfo* info, int numTravelers);
+std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex);
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -104,6 +107,7 @@ int growSegment = 5;
 vector<int> counters;
 bool pauseDrawing = false;
 std::set<std::pair<int, int>> visitedSquares;
+int numTravelersSolved = 0;
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -130,6 +134,12 @@ void drawTravelers(void)
         // Draw the traveler at the updated position
         drawTraveler(travelerList[k]);
     }
+
+    // if travelers done is equal to the number of travelers, then we are done
+
+
+
+
     // Uncomment if you want to add delay
     // this_thread::sleep_for(chrono::milliseconds(250));
 }
@@ -141,8 +151,8 @@ void updateMessages(void)
 	//	always get displayed.  No need to pass a message about it.
 	unsigned int numMessages = 4;
 	sprintf(message[0], "We created %d travelers", numTravelers);
-	sprintf(message[1], "%d travelers solved the maze", numTravelersDone);
-	sprintf(message[2], "I like cheese");
+	sprintf(message[1], "%d travelers solved the maze", numTravelersSolved);
+	sprintf(message[2], "%d travelers got stuck", numTravelersDone-numTravelersSolved);
 	sprintf(message[3], "Simulation run time: %ld s", time(NULL)-launchTime);
 	
 	//---------------------------------------------------------
@@ -167,6 +177,7 @@ void handleKeyboardEvent(unsigned char c, int x, int y)
 	{
 		//	'esc' to quit
 		case 27:
+            join_threads(info, numTravelers);
 			exit(0);
 			break;
 
@@ -685,14 +696,13 @@ void generatePartitions(void)
 	}
 }
 
-TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex) 
-{
-	TravelerSegment newSeg;
-	//We don't want to pick a direction towards the obstacle
-	const int dr[] = {1, 0, -1, 0};
-	const int dc[] = {0, -1, 0, 1};
-	// Try to find a free space in the new direction
+std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex){
+    //We don't want to pick a direction towards the obstacle
+    const int dr[] = {1, 0, -1, 0};
+    const int dc[] = {0, -1, 0, 1};
+    // Try to find a free space in the new direction
 
+    TravelerSegment newSeg;
     // Define a vector to store the available directions
     std::vector<int> availableDirections;
 
@@ -709,15 +719,10 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex)
             continue;
         }
 
-		newSeg.row = currentSeg.row + dr[i];
-		newSeg.col = currentSeg.col + dc[i];
+        newSeg.row = currentSeg.row + dr[i];
+        newSeg.col = currentSeg.col + dc[i];
         if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
-            grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT ||
-		   (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::TRAVELER &&
-			checkSelfCollision(travelerList[travelIndex], newSeg))) {
-
-			// allow curr traveler to move only through other travelers and not itself
-			// A traveler can't move in the opposite directoin 
+            grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT){
 
             // create a pair of the free square
             std::pair<int, int> nextSquare = {currentSeg.row + dr[i], currentSeg.col + dc[i]};
@@ -736,17 +741,16 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex)
         }
     }
 
-    if (availableDirections.empty())
-    {
-        // We are stuck
-        cout << "We are stuck" << endl;
-        exit(0);
-    }
+    return availableDirections;
+}
 
-    cout << "Available Directions: " << availableDirections.size() << endl;
+TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex, int i)
+{
+	TravelerSegment newSeg;
 
+    const int dr[] = {1, 0, -1, 0};
+    const int dc[] = {0, -1, 0, 1};
 
-    int i = availableDirections[rand() % availableDirections.size()];
     Direction newDir;
     switch (i)
     {
@@ -776,7 +780,6 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex)
         currentSeg = newSeg;
     }
 
-    cout << "Available Directions: " << availableDirections.size() << endl;
 	return newSeg;
 }
 
@@ -804,9 +807,10 @@ Direction getOppositeDir(const Direction& dir) {
 
 void* moveTraveler(ThreadInfo* travelThread) {
 	cout << travelThread->keepGoing << endl;
+    int attempt = 0;
 	while(travelThread->keepGoing) {
 		// valid segments moves in free spaces, avoids obstacles
-		bool validSeg = true;
+
 
 		// Pointer to traveler segment list
 		vector<TravelerSegment>& segments = travelerList[travelThread->index].segmentList;
@@ -815,66 +819,130 @@ void* moveTraveler(ThreadInfo* travelThread) {
 		TravelerSegment frontSeg = segments[0];
 		TravelerSegment newSeg;
 
-		if (counters[travelThread->index] % growSegment == 0)
-		{
-			// Condition 1: Grow Segment
-			// Store the end segment
-			TravelerSegment endSeg = segments.back();
+        travelThread->stuck = true;
 
-			// Move each segment in the list
-			for (int i = segments.size() - 1; i > 0; i--)
-			{
-				segments[i] = segments[i - 1];
-			}
+        std::vector<int> availableDirections;
 
-			newSeg = handleObstacleCase(frontSeg, travelThread->index);
+        while(travelThread->stuck){
+            // Get the available directions
+            availableDirections = getAvailableDirections(frontSeg, travelThread->index);
+            if (availableDirections.size() == 0) {
+                // If there are no available directions, then we are stuck
+                this_thread::sleep_for(chrono::milliseconds(500));
+                attempt++;
+                if (attempt == 5) {
+                    travelThread->keepGoing = false;
+                    break;
+                }
+            }
+            else {
+                // We are not stuck
+                travelThread->stuck = false;
+            }
+        }
 
-			// Keep the end segment
-			segments.push_back(endSeg);
-		}
-		else
-		{
-			// Keep a copy of the end 
-			TravelerSegment endSeg = segments.back();
-			
-			// Condition 2: Don't Grow Segment
-			// Move each segment in the list
-			for (int i = segments.size() - 1; i > 0; i--)
-			{
-				segments[i] = segments[i - 1];
-			}
+        if(!travelThread->stuck) {
+            int dir = availableDirections[rand() % availableDirections.size()];
 
-			newSeg = handleObstacleCase(frontSeg, travelThread->index);
+            if (counters[travelThread->index] % growSegment == 0) {
+                // Condition 1: Grow Segment
+                // Store the end segment
+                TravelerSegment endSeg = segments.back();
 
-			//As the traveler moves, we free the spaces behind 
-			grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
-		}
+                // Move each segment in the list
+                for (int i = segments.size() - 1; i > 0; i--) {
+                    segments[i] = segments[i - 1];
+                }
 
-		// Get the opposite direction of head, helps render correctly
-		Direction opposite = getOppositeDir(newSeg.dir);
-		newSeg.dir = opposite;
+                // if we're at a border or obstacle, change the new segment direciton
+                newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
-		// Update the traveler's segment list'
-		segments[0] = newSeg;
+                // Keep the end segment
 
-		// prints entire traveler 
-		for(auto seg : segments) {
-			cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
-		}
-		cout << endl;
+                segments.push_back(endSeg);
 
-		//Check if we reahed the exit
-		if(grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
-			cout << "Exit Reached!" << endl;
-			travelThread->keepGoing = false;
-		}
+            } else {
+                // Keep a copy of the end
+                TravelerSegment endSeg = segments.back();
+
+                // Condition 2: Don't Grow Segment
+                // Move each segment in the list
+                for (int i = segments.size() - 1; i > 0; i--) {
+                    segments[i] = segments[i - 1];
+                }
+
+                // if we're at a border or obstacle, change the new segment direciton
+                newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
 
-		counters[travelThread->index] += 1;
-		// Uncomment if you want to add delay
-		this_thread::sleep_for(chrono::milliseconds(250));
+                grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
+
+
+            }
+
+
+            // Get the opposite direction of head, helps render correctly
+
+            Direction opposite = getOppositeDir(newSeg.dir);
+            newSeg.dir = opposite;
+
+            // Update the traveler's segment list'
+            segments[0] = newSeg;
+
+
+            // prints entire traveler
+            for (auto seg: segments) {
+                cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
+            }
+            cout << endl;
+
+            //Check if we reahed the exit
+            if (grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
+                cout << "Exit Reached!" << endl;
+                numTravelersSolved++;
+                travelThread->keepGoing = false;
+            }
+
+
+            counters[travelThread->index] += 1;
+            // Uncomment if you want to add delay
+            this_thread::sleep_for(chrono::milliseconds(100));
+        }
+
 	}
+
+
+    // erase the traveler from the grid from the last segment to the first
+    for (auto seg : travelerList[travelThread->index].segmentList) {
+
+        // if the space is not the exit, then free it
+        if (grid[seg.row][seg.col] != SquareType::EXIT){
+            grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
+        }
+
+    }
+    // erase the segments from the traveler
+    travelerList[travelThread->index].segmentList.clear();
+
+    // Increment the number of travelers done
+    numTravelersDone++;
+
+    if (numTravelersDone == numTravelers) {
+        cout << "All travelers finished moving" << endl;
+        // join all threads
+        //join_threads(info, numTravelers);
+    }
+
+
+
 	return NULL;
+}
+
+void join_threads(ThreadInfo* info, int numTravelers) {
+    for (int i = 0; i < numTravelers; i++) {
+		info[i].keepGoing = false;
+        info[i].thread_process.join();
+    }
 }
 
 bool checkSelfCollision(const Traveler& traveler, const TravelerSegment& newSeg) {
