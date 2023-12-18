@@ -43,6 +43,9 @@ typedef struct
 
 struct partitionStatus
 {	
+	// If a partition bounces back and forward, stop the thread 
+	unsigned int numMoves;
+
 	// Determines if a partition cannot move in a certain direction
 	bool leftStuck;
 	bool rightStuck;
@@ -124,6 +127,10 @@ vector<int> counters;
 bool pauseDrawing = false;
 int numTravelersSolved = 0;
 mutex myLock;
+
+//Partition Max Moves Threshold 
+unsigned int MAX_PARTITION_THRESHOLD = 1000;
+
 
 #if 0
 //-----------------------------------------------------------------------------
@@ -410,7 +417,7 @@ void initializeApplication(void)
 		cout << endl;
 	}	
 	for(int j=0; j<partitionList.size(); j++) {
-		partStatus.push_back({false, false, false, false});
+		partStatus.push_back({0,false, false, false, false});
 	}
 }
 
@@ -765,7 +772,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
 			 // Check the status of partitions
             if (grid[nextSquare.first][nextSquare.second] == SquareType::HORIZONTAL_PARTITION) {
 				int partIndex = findPartition(temp, false);
-				cout << "Part Index: " << partIndex << endl;
+				// cout << "Part Index: " << partIndex << endl;
 				isPartitionStuck(partIndex);
                 if (!partStatus[partIndex].rightStuck || !partStatus[partIndex].leftStuck) {
                     availableDirections.push_back(i);
@@ -773,7 +780,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
             } 
 			else if (grid[nextSquare.first][nextSquare.second] == SquareType::VERTICAL_PARTITION) {
 				int partIndex = findPartition(temp, true);
-				cout << "Part Index: " << partIndex << endl;
+				// cout << "Part Index: " << partIndex << endl;
 				isPartitionStuck(partIndex);
                 if (!partStatus[partIndex].upStuck || !partStatus[partIndex].downStuck) {
                     availableDirections.push_back(i);
@@ -890,7 +897,7 @@ Direction getOppositeDir(const Direction& dir) {
 }
 
 void* moveTraveler(ThreadInfo* travelThread) {
-	cout << travelThread->keepGoing << endl;
+	// cout << travelThread->keepGoing << endl;
 
     const int dr[] = {1, 0, -1, 0};
     const int dc[] = {0, -1, 0, 1};
@@ -957,11 +964,21 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 int partitoinIndex = findPartition(temp, false);
                 // Move the partition, update traveler direction, and try to move again
                 movePartition(partitoinIndex);
+				// cout << partStatus[partitoinIndex].numMoves << endl;
                 // if status.rightStuck or status.leftStuck is true, then we are stuck
 				if(partStatus[partitoinIndex].rightStuck && partStatus[partitoinIndex].leftStuck) {
 					travelThread->stuck = true;
 				}
-				newSeg = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
+				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
+					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
+					partStatus[partitoinIndex].numMoves = 0; 
+					travelThread->keepGoing = false;
+					break;
+
+				}
+				else {
+					newSeg = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
+				}
             }
             else if(grid[frontSeg.row + dr[dir]][frontSeg.col + dc[dir]] == SquareType::VERTICAL_PARTITION) {
                 TravelerSegment temp = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
@@ -973,7 +990,15 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				if(partStatus[partitoinIndex].upStuck && partStatus[partitoinIndex].downStuck) {
 					travelThread->stuck = true;
 				}
-				newSeg = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
+				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
+					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
+					travelThread->keepGoing = false;
+					partStatus[partitoinIndex].numMoves = 0; 
+					break;
+				}
+				else {
+					newSeg = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
+				}
             }
 
             else {
@@ -1118,6 +1143,7 @@ void movePartition(int index)
 			// cout << "test: " << partEnd.row << endl;
 			if(partEnd.row < numRows-1 && grid[partEnd.row+1][partEnd.col] == SquareType::FREE_SQUARE) {
 				status.downStuck = false;
+				status.numMoves++;
 				for(int i=0; i<parts.size(); i++){
 					parts[i].row += 1;
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
@@ -1134,6 +1160,7 @@ void movePartition(int index)
 			// cout << "test: " << partFront.row << endl;
 			if(partFront.row > 0 && grid[partFront.row-1][partFront.col] == SquareType::FREE_SQUARE) {
 				status.upStuck = false;
+				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].row -= 1;
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
@@ -1152,6 +1179,7 @@ void movePartition(int index)
 			// cout << "test: " << partEnd.col << endl;
 			if(partEnd.col < numCols-1 && grid[partEnd.row][partEnd.col+1] == SquareType::FREE_SQUARE) {
 				status.rightStuck = false;
+				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col += 1;
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
@@ -1169,6 +1197,7 @@ void movePartition(int index)
 			// cout << "test: " << partFront.col << endl;
 			if(partFront.col > 0 && grid[partFront.row][partFront.col-1] == SquareType::FREE_SQUARE) {
 				status.leftStuck = false;
+				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col -= 1;
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
@@ -1204,8 +1233,8 @@ void isPartitionStuck(int index)
 		else 
 			status.upStuck = true;
 
-		cout << "Status down " << status.downStuck << endl;
-		cout << "Status up " << status.upStuck << endl;
+		// cout << "Status down " << status.downStuck << endl;
+		// cout << "Status up " << status.upStuck << endl;
 	}
 	else {
 
@@ -1220,7 +1249,7 @@ void isPartitionStuck(int index)
 			status.leftStuck = false;
 		else 
 			status.leftStuck = true;
-		cout << "Status left " << status.leftStuck << endl;
-		cout << "Status right " << status.rightStuck << endl;
+		// cout << "Status left " << status.leftStuck << endl;
+		// cout << "Status right " << status.rightStuck << endl;
 	}
 }
