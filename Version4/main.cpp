@@ -129,14 +129,8 @@ bool pauseDrawing = false;
 int numTravelersSolved = 0;
 mutex myLock;
 
-<<<<<<< HEAD
 //Partition Max Moves Threshold 
 unsigned int MAX_PARTITION_THRESHOLD = 1000;
-
-=======
-const int dr[] = {1, 0, -1, 0};
-const int dc[] = {0, -1, 0, 1};
->>>>>>> dcb262b046bdbb401044deae45fd11c142c02b77
 
 #if 0
 //-----------------------------------------------------------------------------
