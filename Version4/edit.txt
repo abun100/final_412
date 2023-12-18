@@ -1,0 +1,141 @@
+void findPath(Traveler traveler) 
+{	
+	//We get the head of the traveler (we get the back of the segement list)
+	GridPosition travelerHead = {(traveler.segmentList.back()).row, (traveler.segmentList.back()).col};
+	//Push the traveler head onto the queue
+	gridQueue.push(travelerHead);
+	//We mark true as we visit the intital square
+	visited[travelerHead.row][travelerHead.col] = true;
+
+	GridPosition startingPoint = travelerHead;
+	// Breadth first search implementation 
+	while (!gridQueue.empty()) 
+	{
+		GridPosition current = gridQueue.front();
+		gridQueue.pop();
+
+		if(grid[current.row][current.col] == SquareType::EXIT) {
+			cout << "Traveler has reached the exit" << endl;
+			break;
+		}
+
+		// Explore neighbors in four directions {N S E W}
+		const int dr[] = {1, -1, 0, 0};
+		const int dc[] = {0, 0, -1, 1};
+
+		// Explore the directions of curr position
+		for (int i = 0; i < 4; ++i) 
+		{
+			int new_row = current.row + dr[i];
+			int new_col = current.col + dc[i];
+
+			if (inBounds(new_row, new_col) && isFree(new_row, new_col))
+			{
+				visited[new_row][new_col] = true;
+				GridPosition validPos = {new_row, new_col};
+				gridQueue.push(validPos);
+
+				// cout << "ROW: " << validPos.row << " COl: " << validPos.col << endl;
+			}
+		}
+	}
+
+	cout << "Exit Pos: " << exitPos.row << " " << exitPos.col << endl;
+	// Print the queue
+    while (!gridQueue.empty()){
+        cout << gridQueue.front().row << " " << gridQueue.front().col << endl;
+        gridQueue.pop();
+    }
+	// Print the starting position after the loop
+    cout << "Start Pos: " << startingPoint.row << " " << startingPoint.col << endl;
+	
+}
+
+bool inBounds(int row, int col) {
+    return row >= 0 && row < numRows && col >= 0 && col < numCols;
+}
+
+bool isFree(int row, int col) {
+    return !visited[row][col] &&
+           grid[row][col] != SquareType::WALL &&
+           grid[row][col] != SquareType::HORIZONTAL_PARTITION &&
+           grid[row][col] != SquareType::VERTICAL_PARTITION && 
+		   grid[row][col] != SquareType::TRAVELER;
+}
+void exitHit(Traveler traveler) {
+	// for each traveler square on the grid, convert back to free space 
+	for(int i=0; i < traveler.segmentList.size(); i++) {
+		TravelerSegment travelerSquare = traveler.segmentList[i];
+		int row = travelerSquare.row;
+		int col = travelerSquare.col;
+		grid[row][col] = SquareType::FREE_SQUARE;
+	}
+
+	// Delete the traveler from the traveler list
+}
+
+
+
+
+
+
+// while(!reachedExit) {
+			
+		// 	drawTraveler(travelerList[k]);
+
+		// 	bool canAddSegment = true;
+
+		// 	// add new segment when we hit a free space
+		// 	TravelerSegment currSeg = travelerList[k].segmentList.back();
+        //     TravelerSegment newSeg = newTravelerSegment(currSeg, canAddSegment);
+		// 	if(canAddSegment)
+		// 	{
+        //         travelerList[k].segmentList.push_back(newSeg);
+        //     }
+		// 	// We hit a wall, partition, or border, switch directions 
+		// 	else 
+		// 	{
+        //         // Explore neighbors in four directions
+		// 		const int dr[] = {-1, 1, 0, 0};
+		// 		const int dc[] = {0, 0, -1, 1};
+                
+		// 		// Explore the directions of curr position
+		// 		for (int i = 0; i < 4; ++i) 
+		// 		{
+		// 			int new_row = currSeg.row + dr[i];
+		// 			int new_col = currSeg.col + dc[i];
+
+		// 			//Check if the new position is outside the grid first, then check if were at a wall instead
+		// 			//All we need to do is switch to a direction of a free space
+		// 			if (!outsideGrid(new_row, new_col) || !atWall(new_row, new_col))
+		// 			{
+		// 				switch (i)
+		// 				{
+		// 					case 0:
+		// 						travelerList[k].segmentList.back().dir = Direction::NORTH;
+		// 						break;
+		// 					case 1:
+		// 						travelerList[k].segmentList.back().dir = Direction::SOUTH;
+		// 						break;
+		// 					case 2:
+		// 						travelerList[k].segmentList.back().dir = Direction::EAST;
+		// 						break;
+		// 					case 3:
+		// 						travelerList[k].segmentList.back().dir = Direction::WEST;
+		// 						break;
+		// 				}
+		// 				break;
+		// 			}
+		// 		}
+        //     }
+		// 	//check if the exit it next to newSeq
+		// 	if(checkExit(currSeg)){
+		// 		reachedExit = true;
+				
+		// 	}
+        // 	this_thread::sleep_for(chrono::milliseconds(100));
+		// }
+		// // Using erase() to remove the first element
+		// // if (!travelerList[k].segmentList.empty()) {
+		// // 	travelerList[k].segmentList.erase(travelerList[k].segmentList.begin());
+		// // }
