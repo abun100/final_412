@@ -38,6 +38,7 @@ typedef struct
 	unsigned int index;
 	bool keepGoing;
     bool stuck;
+    std::set<std::pair<int, int>> visitedSquares;
 } ThreadInfo;
 
 void initializeApplication(void);
@@ -107,7 +108,6 @@ ThreadInfo* info;
 int growSegment = 5;
 vector<int> counters;
 bool pauseDrawing = false;
-std::set<std::pair<int, int>> visitedSquares;
 int numTravelersSolved = 0;
 mutex myLock;
 
@@ -400,6 +400,8 @@ void initializeThreads() {
 		info[k].index = k;
 		info[k].thread_process = thread(moveTraveler, &info[k]);
 		info[k].keepGoing = true;
+        info[k].stuck = false;
+        info[k].visitedSquares = {};
 	}
 }
 
@@ -713,7 +715,9 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
     bool foundUnvisitedSquare = false;
 
     // Add the current square to the visited squares
-    visitedSquares.insert({currentSeg.row, currentSeg.col});
+    info[travelIndex].visitedSquares.insert({currentSeg.row, currentSeg.col});
+
+    cout << "Visited Squares of traveler " << travelIndex << ": " << info[travelIndex].visitedSquares.size() << endl;
 
     for (int i = 0; i < 4; ++i) {
         // Bounds check
@@ -731,14 +735,14 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
             std::pair<int, int> nextSquare = {currentSeg.row + dr[i], currentSeg.col + dc[i]};
 
             // If the square is unvisited, consider it
-            if (visitedSquares.find(nextSquare) == visitedSquares.end()) {
+            if (info[travelIndex].visitedSquares.find(nextSquare) == info[travelIndex].visitedSquares.end()) {
                 foundUnvisitedSquare = true;
                 availableDirections.push_back(i);
             }
 
                 // If the square is visited and no unvisited square has been found, consider it
-            else if (!foundUnvisitedSquare && visitedSquares.find(nextSquare) != visitedSquares.end()) {
-                cout << "Visited squares size: " << visitedSquares.size() << endl;
+            else if (!foundUnvisitedSquare && info[travelIndex].visitedSquares.find(nextSquare) != info[travelIndex].visitedSquares.end()) {
+
                 availableDirections.push_back(i);
             }
         }
