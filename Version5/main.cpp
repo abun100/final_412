@@ -13,6 +13,7 @@
 #include <thread>
 #include <chrono>
 #include <queue>
+#include <memory>
 //
 #include <cstdio>
 #include <cstdlib>
@@ -127,7 +128,7 @@ int growSegment = 5;
 vector<int> counters;
 bool pauseDrawing = false;
 int numTravelersSolved = 0;
-std::vector<std::vector<std::unique_lock<std::mutex>>> squareLocks;
+vector<vector<shared_ptr<mutex>>> squareLocks;
 
 //Partition Max Moves Threshold 
 unsigned int MAX_PARTITION_THRESHOLD = 1000;
@@ -367,27 +368,14 @@ void initializeApplication(void)
 	generatePartitions();
 
     //initalize the square locks
-
     for (int i = 0; i < numRows; i++) {
-        std::vector<std::unique_lock<std::mutex>> row;
+        vector<shared_ptr<mutex>> row;
         for (int j = 0; j < numCols; j++) {
-            std::mutex m;
-            row.emplace_back(m);
+            row.push_back(make_shared<mutex>());
         }
-        squareLocks.push_back(std::move(row));
+        squareLocks.push_back(row);
     }
 
-
-
-
-    // unlock each square since unique_locks are initialized as locked
-    for (int i = 0; i < numRows; i++) {
-        for (int j = 0; j < numCols; j++) {
-            squareLocks[i][j].unlock();
-        }
-    }
-
-	
 	//	Initialize traveler info structs
 	//	You will probably need to replace/complete this as you add thread-related data
 	float** travelerColor = createTravelerColors(numTravelers);
@@ -892,7 +880,14 @@ void* moveTraveler(ThreadInfo* travelThread) {
     const int dr[] = {1, 0, -1, 0};
     const int dc[] = {0, -1, 0, 1};
 
+
+
 	while(travelThread->keepGoing) {
+
+        //lock all the squares the traveler is on
+        for(auto& seg : travelerList[travelThread->index].segmentList) {
+            squareLocks[seg.row][seg.col]->lock();
+        }
 
         int attempt = 0;
 		// Pointer to traveler segment list
@@ -1026,14 +1021,11 @@ void* moveTraveler(ThreadInfo* travelThread) {
                     // if we're at a border or obstacle, change the new segment direciton
                     newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
-					//squareLocks[endSeg.row][endSeg.col].lock();
                     grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
-					//squareLocks[endSeg.row][endSeg.col].unlock();
 
                     travelThread->travelerLock.unlock();
 
                 }
-
 
                 // Get the opposite direction of head, helps render correctly
 
@@ -1057,21 +1049,35 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 // Uncomment if you want to add delay
                 this_thread::sleep_for(chrono::milliseconds(100));
             }
+
         }
+
+        for(auto& seg : travelerList[travelThread->index].segmentList) {
+            squareLocks[seg.row][seg.col]->unlock();
+        }
+
 	}
+
+    // lock all the squares the traveler is on
+    for(auto& seg : travelerList[travelThread->index].segmentList) {
+        squareLocks[seg.row][seg.col]->lock();
+    }
 
     // erase the traveler from the grid from the last segment to the first
     for (auto seg : travelerList[travelThread->index].segmentList) {
-
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
 
-            //squareLocks[seg.row][seg.col].lock();
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
-            //squareLocks[seg.row][seg.col].unlock();
         }
 
     }
+
+    // unlock all the squares the traveler is on
+    for(auto& seg : travelerList[travelThread->index].segmentList) {
+        squareLocks[seg.row][seg.col]->unlock();
+    }
+
 
 	travelThread->travelerLock.lock();
     // erase the segments from the traveler
@@ -1131,17 +1137,24 @@ void movePartition(int index)
 			// cout << "moved down" << endl;
 			// cout << "test: " << partEnd.row << endl;
 			if(partEnd.row < numRows-1 && grid[partEnd.row+1][partEnd.col] == SquareType::FREE_SQUARE) {
+
+                //lock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->lock();
+                }
+
 				status.downStuck = false;
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++){
 					parts[i].row += 1;
-                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
-                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                //squareLocks[partFront.row][partFront.col].lock();
 				grid[partFront.row][partFront.col] = SquareType::FREE_SQUARE;
-                //squareLocks[partFront.row][partFront.col].unlock();
+
+                //unlock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->unlock();
+                }
 			}
 			else {
 				status.downStuck = true;
@@ -1152,17 +1165,24 @@ void movePartition(int index)
 			// cout << "moved up" << endl;
 			// cout << "test: " << partFront.row << endl;
 			if(partFront.row > 0 && grid[partFront.row-1][partFront.col] == SquareType::FREE_SQUARE) {
+
+                //lock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->lock();
+                }
+
 				status.upStuck = false;
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].row -= 1;
-                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
-                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                //squareLocks[partEnd.row][partEnd.col].lock();
 				grid[partEnd.row][partEnd.col] = SquareType::FREE_SQUARE;
-                //squareLocks[partEnd.row][partEnd.col].unlock();
+
+                //unlock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->unlock();
+                }
 			}
 			else {
 				status.upStuck = true;
@@ -1175,17 +1195,28 @@ void movePartition(int index)
 			// cout << "moved right" << endl;
 			// cout << "test: " << partEnd.col << endl;
 			if(partEnd.col < numCols-1 && grid[partEnd.row][partEnd.col+1] == SquareType::FREE_SQUARE) {
+
+                //lock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->lock();
+                }
+
 				status.rightStuck = false;
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col += 1;
-                    //squareLocks[parts[i].row][parts[i].col].lock();
+
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
-                    //squareLocks[parts[i].row][parts[i].col].unlock();
+
 				}
-                //squareLocks[partFront.row][partFront.col].lock();
+
 				grid[partFront.row][partFront.col] = SquareType::FREE_SQUARE;
-                //squareLocks[partFront.row][partFront.col].unlock();
+
+                //unlock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->unlock();
+                }
+
 			}
 			else {
 				status.rightStuck = true;
@@ -1197,17 +1228,26 @@ void movePartition(int index)
 			// cout << "moved left" << endl;
 			// cout << "test: " << partFront.col << endl;
 			if(partFront.col > 0 && grid[partFront.row][partFront.col-1] == SquareType::FREE_SQUARE) {
+
+                //lock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->lock();
+                }
+
 				status.leftStuck = false;
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col -= 1;
-                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
-                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                //squareLocks[partEnd.row][partEnd.col].lock();
+
 				grid[partEnd.row][partEnd.col] = SquareType::FREE_SQUARE;
-                //squareLocks[partEnd.row][partEnd.col].unlock();
+
+                //unlock all the squares the partition is on
+                for(auto& part : parts) {
+                    squareLocks[part.row][part.col]->unlock();
+                }
+
 			}
 			else {
 				status.leftStuck = true;

@@ -25,6 +25,7 @@
 #include <cstdio>
 #include <cmath>
 #include <mutex>
+#include <memory>
 //
 #include "gl_frontEnd.h"
 
@@ -44,8 +45,7 @@ extern SquareType** grid;
 extern unsigned int numRows;			//	height of the grid
 extern unsigned int numCols;			//	width
 extern unsigned int numLiveThreads;		//	the number of live traveler threads
-extern std::vector<std::vector<std::unique_lock<std::mutex>>> squareLocks;
-
+extern vector<vector<shared_ptr<mutex>>> squareLocks;
 
 
 #if 0
@@ -302,9 +302,9 @@ void drawGrid(void)
 
 			if (grid[i][j] != SquareType::WALL && grid[i][j] != SquareType::EXIT)
 			{
-				if (squareLocks[i][j].try_lock())
+				if (squareLocks[i][j]->try_lock())
 				{
-					squareLocks[i][j].unlock();
+					squareLocks[i][j]->unlock();
 				}
 				else
 				{
