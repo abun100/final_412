@@ -377,6 +377,9 @@ void initializeApplication(void)
         squareLocks.push_back(std::move(row));
     }
 
+
+
+
     // unlock each square since unique_locks are initialized as locked
     for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < numCols; j++) {
@@ -849,47 +852,13 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
     {
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
     }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::HORIZONTAL_PARTITION) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = false;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-		
-	// 	// if(!partStatus[partitoinIndex].leftStuck || !partStatus[partitoinIndex].rightStuck)
-	// 	// {	// Move the partition, update traveler direction, and try to move again
-	// 		movePartition(partitoinIndex);
-	// 		cout << "RETURN FROM MOVE" << endl;
-	// 	// }
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::VERTICAL_PARTITION ) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = true;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-
-	// 	// Move the partition, update traveler direction, and try to move again
-	// 	movePartition(partitoinIndex);
-	// 	cout << "RETURN FROM MOVE" << endl;
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
     else
     {
         // Move in the new direction
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-        squareLocks[newSeg.row][newSeg.col].lock();
+        //squareLocks[newSeg.row][newSeg.col].lock();
         grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-        squareLocks[newSeg.row][newSeg.col].unlock();
+        //squareLocks[newSeg.row][newSeg.col].unlock();
         currentSeg = newSeg;
     }
 	return newSeg;
@@ -1057,9 +1026,9 @@ void* moveTraveler(ThreadInfo* travelThread) {
                     // if we're at a border or obstacle, change the new segment direciton
                     newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
-					squareLocks[endSeg.row][endSeg.col].lock();
+					//squareLocks[endSeg.row][endSeg.col].lock();
                     grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
-					squareLocks[endSeg.row][endSeg.col].unlock();
+					//squareLocks[endSeg.row][endSeg.col].unlock();
 
                     travelThread->travelerLock.unlock();
 
@@ -1097,9 +1066,9 @@ void* moveTraveler(ThreadInfo* travelThread) {
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
 
-            squareLocks[seg.row][seg.col].lock();
+            //squareLocks[seg.row][seg.col].lock();
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
-            squareLocks[seg.row][seg.col].unlock();
+            //squareLocks[seg.row][seg.col].unlock();
         }
 
     }
@@ -1166,13 +1135,13 @@ void movePartition(int index)
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++){
 					parts[i].row += 1;
-                    squareLocks[parts[i].row][parts[i].col].lock();
+                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
-                    squareLocks[parts[i].row][parts[i].col].unlock();
+                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                squareLocks[partFront.row][partFront.col].lock();
+                //squareLocks[partFront.row][partFront.col].lock();
 				grid[partFront.row][partFront.col] = SquareType::FREE_SQUARE;
-                squareLocks[partFront.row][partFront.col].unlock();
+                //squareLocks[partFront.row][partFront.col].unlock();
 			}
 			else {
 				status.downStuck = true;
@@ -1187,13 +1156,13 @@ void movePartition(int index)
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].row -= 1;
-                    squareLocks[parts[i].row][parts[i].col].lock();
+                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::VERTICAL_PARTITION;
-                    squareLocks[parts[i].row][parts[i].col].unlock();
+                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                squareLocks[partEnd.row][partEnd.col].lock();
+                //squareLocks[partEnd.row][partEnd.col].lock();
 				grid[partEnd.row][partEnd.col] = SquareType::FREE_SQUARE;
-                squareLocks[partEnd.row][partEnd.col].unlock();
+                //squareLocks[partEnd.row][partEnd.col].unlock();
 			}
 			else {
 				status.upStuck = true;
@@ -1210,13 +1179,13 @@ void movePartition(int index)
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col += 1;
-                    squareLocks[parts[i].row][parts[i].col].lock();
+                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
-                    squareLocks[parts[i].row][parts[i].col].unlock();
+                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
-                squareLocks[partFront.row][partFront.col].lock();
+                //squareLocks[partFront.row][partFront.col].lock();
 				grid[partFront.row][partFront.col] = SquareType::FREE_SQUARE;
-                squareLocks[partFront.row][partFront.col].unlock();
+                //squareLocks[partFront.row][partFront.col].unlock();
 			}
 			else {
 				status.rightStuck = true;
@@ -1232,11 +1201,13 @@ void movePartition(int index)
 				status.numMoves++;
 				for(int i=0; i<parts.size(); i++) {
 					parts[i].col -= 1;
-                    squareLocks[parts[i].row][parts[i].col].lock();
+                    //squareLocks[parts[i].row][parts[i].col].lock();
 					grid[parts[i].row][parts[i].col] = SquareType::HORIZONTAL_PARTITION;
-                    squareLocks[parts[i].row][parts[i].col].unlock();
+                    //squareLocks[parts[i].row][parts[i].col].unlock();
 				}
+                //squareLocks[partEnd.row][partEnd.col].lock();
 				grid[partEnd.row][partEnd.col] = SquareType::FREE_SQUARE;
+                //squareLocks[partEnd.row][partEnd.col].unlock();
 			}
 			else {
 				status.leftStuck = true;
