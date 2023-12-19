@@ -844,7 +844,6 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
     {
         // Move in the new direction
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-        squareLocks[newSeg.row][newSeg.col]->lock();
         grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
         currentSeg = newSeg;
     }
