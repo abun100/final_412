@@ -844,9 +844,8 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
     {
         // Move in the new direction
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-        //squareLocks[newSeg.row][newSeg.col].lock();
+        squareLocks[newSeg.row][newSeg.col]->lock();
         grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
-        //squareLocks[newSeg.row][newSeg.col].unlock();
         currentSeg = newSeg;
     }
 	return newSeg;
@@ -958,6 +957,11 @@ void* moveTraveler(ThreadInfo* travelThread) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					partStatus[partitoinIndex].numMoves = 0; 
 					travelThread->keepGoing = false;
+
+					for(auto& seg : travelerList[travelThread->index].segmentList) {
+						squareLocks[seg.row][seg.col]->unlock();
+					}
+
 					break;
 
 				}
@@ -979,6 +983,11 @@ void* moveTraveler(ThreadInfo* travelThread) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					travelThread->keepGoing = false;
 					partStatus[partitoinIndex].numMoves = 0; 
+
+					for(auto& seg : travelerList[travelThread->index].segmentList) {
+						squareLocks[seg.row][seg.col]->unlock();
+					}
+
 					break;
 				}
 				else {
