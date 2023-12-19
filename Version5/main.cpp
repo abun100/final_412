@@ -377,6 +377,13 @@ void initializeApplication(void)
         squareLocks.push_back(std::move(row));
     }
 
+    // unlock each square since unique_locks are initialized as locked
+    for (int i = 0; i < numRows; i++) {
+        for (int j = 0; j < numCols; j++) {
+            squareLocks[i][j].unlock();
+        }
+    }
+
 	
 	//	Initialize traveler info structs
 	//	You will probably need to replace/complete this as you add thread-related data
