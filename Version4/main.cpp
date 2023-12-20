@@ -904,7 +904,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 travelThread->stuck = false;
             }
         }
-		
+
         if(!travelThread->stuck) {
             int dir = availableDirections[rand() % availableDirections.size()];
 
@@ -938,7 +938,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				}
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 					travelThread->keepGoing = false;
 					break;
 
@@ -960,7 +960,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					travelThread->keepGoing = false;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 					break;
 				}
 				else {
@@ -1011,7 +1011,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
                 }
 
-
                 // Get the opposite direction of head, helps render correctly
 
                 Direction opposite = getOppositeDir(newSeg.dir);
@@ -1021,7 +1020,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 // Update the traveler's segment list'
                 segments[0] = newSeg;
                 travelThread->travelerLock.unlock();
-
 
                 //Check if we reahed the exit
                 if (grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
@@ -1038,20 +1036,22 @@ void* moveTraveler(ThreadInfo* travelThread) {
         }
 	}
 
-    for (int i = travelerList[travelThread->index].segmentList.size() - 1; i >= 0; i--){
-
-        TravelerSegment seg = travelerList[travelThread->index].segmentList[i];
-        // remove the segment from the list
-        travelerList[travelThread->index].segmentList.pop_back();
+	gridLock.lock();
+    // erase the traveler from the grid from the last segment to the first
+    for (auto seg : travelerList[travelThread->index].segmentList) {
 
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
         }
 
-        this_thread::sleep_for(chrono::milliseconds(100));
-
     }
+	gridLock.unlock();
+
+	travelThread->travelerLock.lock();
+    // erase the segments from the traveler
+    travelerList[travelThread->index].segmentList.clear();
+	travelThread->travelerLock.unlock();
 
     // Increment the number of travelers done
     numTravelersDone++;
