@@ -50,11 +50,9 @@ void generatePartitions(void);
 
 void initializeUserData(int argc, char* argv[]);
 void initializeThreads();
-TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd, int travelIndex);
 TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex, int i);
 Direction getOppositeDir(const Direction& dir);
 void* moveTraveler(ThreadInfo*);
-bool checkSelfCollision(const Traveler& traveler, const TravelerSegment& newSeg);
 void togglePauseDrawing();
 void join_threads(ThreadInfo* info, int numTravelers);
 std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex);
@@ -702,6 +700,7 @@ void generatePartitions(void)
 }
 
 std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelIndex){
+
     //We don't want to pick a direction towards the obstacle
     const int dr[] = {1, 0, -1, 0};
     const int dc[] = {0, -1, 0, 1};
@@ -716,8 +715,6 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
 
     // Add the current square to the visited squares
     info[travelIndex].visitedSquares.insert({currentSeg.row, currentSeg.col});
-
-    cout << "Visited Squares of traveler " << travelIndex << ": " << info[travelIndex].visitedSquares.size() << endl;
 
     for (int i = 0; i < 4; ++i) {
         // Bounds check
@@ -826,8 +823,10 @@ void* moveTraveler(ThreadInfo* travelThread) {
 		TravelerSegment newSeg;
 		myLock.unlock();
 
+        // set the traveler to be stuck by default
         travelThread->stuck = true;
 
+        // vector to store available directions
         std::vector<int> availableDirections;
 
         while(travelThread->stuck){
@@ -835,8 +834,14 @@ void* moveTraveler(ThreadInfo* travelThread) {
             availableDirections = getAvailableDirections(frontSeg, travelThread->index);
             if (availableDirections.size() == 0) {
                 // If there are no available directions, then we are stuck
+
+                // sleep the thread to give other threads a chance to move
                 this_thread::sleep_for(chrono::milliseconds(500));
+
+                // increment the attempt counter
                 attempt++;
+
+                // if we have attempted to move 5 times, then we are officially stuck
                 if (attempt == 5) {
                     travelThread->keepGoing = false;
                     break;
@@ -849,8 +854,11 @@ void* moveTraveler(ThreadInfo* travelThread) {
         }
 		
         if(!travelThread->stuck) {
+
+            // Pick a random direction from the available directions
             int dir = availableDirections[rand() % availableDirections.size()];
 
+            // Check if we should grow the segment
             if (counters[travelThread->index] % growSegment == 0) {
                 // Condition 1: Grow Segment
                 // Store the end segment
@@ -866,7 +874,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
                 // Keep the end segment
-
                 segments.push_back(endSeg);
 				myLock.unlock();
 
@@ -884,7 +891,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 // if we're at a border or obstacle, change the new segment direciton
                 newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
-
+                // free the end segment from the grid
                 grid[endSeg.row][endSeg.col] = SquareType::FREE_SQUARE;
 				myLock.unlock();
 
@@ -892,12 +899,11 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
 
             // Get the opposite direction of head, helps render correctly
-
             Direction opposite = getOppositeDir(newSeg.dir);
             newSeg.dir = opposite;
 
 			myLock.lock();
-            // Update the traveler's segment list'
+            // Update the traveler's segment list
             segments[0] = newSeg;
 			myLock.unlock();
 
@@ -914,7 +920,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 travelThread->keepGoing = false;
             }
 
-
+            // Increment the counter
             counters[travelThread->index] += 1;
             // Uncomment if you want to add delay
             this_thread::sleep_for(chrono::milliseconds(100));
@@ -931,6 +937,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
         }
 
     }
+
     // erase the segments from the traveler
     travelerList[travelThread->index].segmentList.clear();
 
@@ -939,11 +946,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
     if (numTravelersDone == numTravelers) {
         cout << "All travelers finished moving" << endl;
-        // join all threads
-        //join_threads(info, numTravelers);
     }
-
-
 
 	return NULL;
 }
@@ -953,15 +956,4 @@ void join_threads(ThreadInfo* info, int numTravelers) {
 		info[i].keepGoing = false;
         info[i].thread_process.join();
     }
-}
-
-bool checkSelfCollision(const Traveler& traveler, const TravelerSegment& newSeg) {
-    for (const auto& segment : traveler.segmentList) {
-        if (newSeg.row == segment.row && newSeg.col == segment.col) {
-            // Self-collision detected
-            return false;
-        }
-    }
-    // No self-collision
-    return true;
 }
