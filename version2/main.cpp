@@ -917,16 +917,20 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
 
     // erase the traveler from the grid from the last segment to the first
-    for (auto seg : travelerList[travelThread->index].segmentList) {
+    for (int i = travelerList[travelThread->index].segmentList.size() - 1; i >= 0; i--){
+
+        TravelerSegment seg = travelerList[travelThread->index].segmentList[i];
+        // remove the segment from the list
+        travelerList[travelThread->index].segmentList.pop_back();
 
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
         }
 
+        this_thread::sleep_for(chrono::milliseconds(100));
+
     }
-    // erase the segments from the traveler
-    travelerList[travelThread->index].segmentList.clear();
 
     // Increment the number of travelers done
     numTravelersDone++;

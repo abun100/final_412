@@ -155,10 +155,12 @@ void drawTravelers(void)
         	drawTraveler(travelerList[k]);
         	return;
 		}
+
 		info[k].travelerLock.lock();
         // Draw the traveler at the updated position
         drawTraveler(travelerList[k]);
 		info[k].travelerLock.unlock();
+
     }
 
     // if travelers done is equal to the number of travelers, then we are done
@@ -847,6 +849,7 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
         grid[newSeg.row][newSeg.col] = SquareType::TRAVELER;
         currentSeg = newSeg;
     }
+
 	return newSeg;
 }
 
@@ -953,6 +956,12 @@ void* moveTraveler(ThreadInfo* travelThread) {
 					travelThread->stuck = true;
 				}
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
+
+                    // unlock all the squares the traveler is on
+                    for(auto& seg : travelerList[travelThread->index].segmentList) {
+                        squareLocks[seg.row][seg.col]->unlock();
+                    }
+
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					partStatus[partitoinIndex].numMoves = 0; 
 					travelThread->keepGoing = false;
@@ -979,6 +988,12 @@ void* moveTraveler(ThreadInfo* travelThread) {
 					travelThread->stuck = true;
 				}
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
+
+                    // unlock all the squares the traveler is on
+                    for(auto& seg : travelerList[travelThread->index].segmentList) {
+                        squareLocks[seg.row][seg.col]->unlock();
+                    }
+
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					travelThread->keepGoing = false;
 					partStatus[partitoinIndex].numMoves = 0; 
@@ -995,6 +1010,10 @@ void* moveTraveler(ThreadInfo* travelThread) {
             }
 
             else {
+
+                //lock the new square we are moving to
+                //squareLocks[frontSeg.row + dr[dir]][frontSeg.col + dc[dir]]->lock();
+
                 // check if the direction chosen is a vertical or horizontal partition
                 if (counters[travelThread->index] % growSegment == 0) {
                     // Condition 1: Grow Segment
@@ -1056,6 +1075,9 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 counters[travelThread->index] += 1;
                 // Uncomment if you want to add delay
                 this_thread::sleep_for(chrono::milliseconds(100));
+
+                //unlock the new square we are moving to
+                //squareLocks[frontSeg.row + dr[dir]][frontSeg.col + dc[dir]]->unlock();
             }
 
         }
@@ -1072,12 +1094,18 @@ void* moveTraveler(ThreadInfo* travelThread) {
     }
 
     // erase the traveler from the grid from the last segment to the first
-    for (auto seg : travelerList[travelThread->index].segmentList) {
+    for (int i = travelerList[travelThread->index].segmentList.size() - 1; i >= 0; i--){
+
+        TravelerSegment seg = travelerList[travelThread->index].segmentList[i];
+        // remove the segment from the list
+        travelerList[travelThread->index].segmentList.pop_back();
+
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
-
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
         }
+
+        this_thread::sleep_for(chrono::milliseconds(100));
 
     }
 
@@ -1086,11 +1114,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
         squareLocks[seg.row][seg.col]->unlock();
     }
 
-
-	travelThread->travelerLock.lock();
-    // erase the segments from the traveler
-    travelerList[travelThread->index].segmentList.clear();
-	travelThread->travelerLock.unlock();
 
     // Increment the number of travelers done
     numTravelersDone++;

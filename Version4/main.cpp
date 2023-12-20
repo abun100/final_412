@@ -831,40 +831,6 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
     {
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
     }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::HORIZONTAL_PARTITION) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = false;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-		
-	// 	// if(!partStatus[partitoinIndex].leftStuck || !partStatus[partitoinIndex].rightStuck)
-	// 	// {	// Move the partition, update traveler direction, and try to move again
-	// 		movePartition(partitoinIndex);
-	// 		cout << "RETURN FROM MOVE" << endl;
-	// 	// }
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::VERTICAL_PARTITION ) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = true;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-
-	// 	// Move the partition, update traveler direction, and try to move again
-	// 	movePartition(partitoinIndex);
-	// 	cout << "RETURN FROM MOVE" << endl;
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
     else
     {
         // Move in the new direction
@@ -1056,11 +1022,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 segments[0] = newSeg;
                 travelThread->travelerLock.unlock();
 
-                // prints entire traveler
-                // for (auto seg: segments) {
-                //     cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
-                // }
-                // cout << endl;
 
                 //Check if we reahed the exit
                 if (grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
@@ -1077,22 +1038,20 @@ void* moveTraveler(ThreadInfo* travelThread) {
         }
 	}
 
-	gridLock.lock();
-    // erase the traveler from the grid from the last segment to the first
-    for (auto seg : travelerList[travelThread->index].segmentList) {
+    for (int i = travelerList[travelThread->index].segmentList.size() - 1; i >= 0; i--){
+
+        TravelerSegment seg = travelerList[travelThread->index].segmentList[i];
+        // remove the segment from the list
+        travelerList[travelThread->index].segmentList.pop_back();
 
         // if the space is not the exit, then free it
         if (grid[seg.row][seg.col] != SquareType::EXIT){
             grid[seg.row][seg.col] = SquareType::FREE_SQUARE;
         }
 
-    }
-	gridLock.unlock();
+        this_thread::sleep_for(chrono::milliseconds(100));
 
-	travelThread->travelerLock.lock();
-    // erase the segments from the traveler
-    travelerList[travelThread->index].segmentList.clear();
-	travelThread->travelerLock.unlock();
+    }
 
     // Increment the number of travelers done
     numTravelersDone++;
