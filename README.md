@@ -11,6 +11,8 @@ For each segment for a traveler[i]:
   else
     set segment[n] = segment[n-1]
     move segment[0] in new direction
+set segment[0] = newSegment
+
 ```
 ### Don't Grow Segment example
 [s1, s2, s3] <br />
