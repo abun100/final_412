@@ -758,6 +758,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
             continue;
         }
 
+        // Check if the square is free, the exit, or a partition
         if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
             grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT ||
 			grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::HORIZONTAL_PARTITION ||
@@ -770,10 +771,9 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
 			temp.col = nextSquare.second;
 
 
-			 // Check the status of partitions
+			 // Check the status of partitions, if it is stuck, then we cannot move in that direction
             if (grid[nextSquare.first][nextSquare.second] == SquareType::HORIZONTAL_PARTITION) {
 				int partIndex = findPartition(temp, false);
-				// cout << "Part Index: " << partIndex << endl;
 				isPartitionStuck(partIndex);
                 if (!partStatus[partIndex].rightStuck || !partStatus[partIndex].leftStuck) {
                     availableDirections.push_back(i);
@@ -781,7 +781,6 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
             } 
 			else if (grid[nextSquare.first][nextSquare.second] == SquareType::VERTICAL_PARTITION) {
 				int partIndex = findPartition(temp, true);
-				// cout << "Part Index: " << partIndex << endl;
 				isPartitionStuck(partIndex);
                 if (!partStatus[partIndex].upStuck || !partStatus[partIndex].downStuck) {
                     availableDirections.push_back(i);
@@ -793,7 +792,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
                 availableDirections.push_back(i);
             }
 
-                // If the square is visited and no unvisited square has been found, consider it
+            // If the square is visited and no unvisited square has been found, consider it
             else if (!foundUnvisitedSquare &&  info[travelIndex].visitedSquares.find(nextSquare) !=  info[travelIndex].visitedSquares.end()) {
                 availableDirections.push_back(i);
             }
@@ -831,40 +830,6 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg, int travelIndex,
     {
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
     }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::HORIZONTAL_PARTITION) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = false;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-		
-	// 	// if(!partStatus[partitoinIndex].leftStuck || !partStatus[partitoinIndex].rightStuck)
-	// 	// {	// Move the partition, update traveler direction, and try to move again
-	// 		movePartition(partitoinIndex);
-	// 		cout << "RETURN FROM MOVE" << endl;
-	// 	// }
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
-	// else if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::VERTICAL_PARTITION ) {
-	// 	newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
-	// 	bool isVertical = true;
-
-	// 	//Find the correct partion
-	// 	int partitoinIndex = findPartition(newSeg, isVertical);
-
-	// 	// Move the partition, update traveler direction, and try to move again
-	// 	movePartition(partitoinIndex);
-	// 	cout << "RETURN FROM MOVE" << endl;
-
-	// 	vector<int> updatedDir = getAvailableDirections(currentSeg, travelIndex);
-	// 	int dir = updatedDir[rand() % updatedDir.size()];
-	// 	cout << "new direction choosen: " <<  dir << endl;
-	// 	newSeg = handleObstacleCase(currentSeg, travelIndex, dir);
-	// }
     else
     {
         // Move in the new direction
@@ -915,8 +880,10 @@ void* moveTraveler(ThreadInfo* travelThread) {
 		TravelerSegment newSeg;
 		travelThread->travelerLock.unlock();
 
+        // Set the traveler to be stuck by default
         travelThread->stuck = true;
 
+        // vector to store available directions
         std::vector<int> availableDirections;
 
         while(travelThread->stuck){
@@ -925,8 +892,14 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
             if (availableDirections.size() == 0) {
                 // If there are no available directions, then we are stuck
+
+                // sleep this thread to give other threads a chance to move
                 this_thread::sleep_for(chrono::milliseconds(500));
+
+                // Increment attempt
                 attempt++;
+
+                // If we have attempted to move 5 times, then we are officially stuck
                 if (attempt == 5) {
                     travelThread->keepGoing = false;
                     break;
@@ -938,10 +911,13 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 travelThread->stuck = false;
             }
         }
-		
+
         if(!travelThread->stuck) {
+
+            // Choose a random direction from the available directions
             int dir = availableDirections[rand() % availableDirections.size()];
 
+            // Determine the new direction
             Direction newDir;
             switch (dir)
             {
@@ -959,20 +935,22 @@ void* moveTraveler(ThreadInfo* travelThread) {
                     break;
             }
 
+            // Check if the direction chosen is a vertical or horizontal partition
             if(grid[frontSeg.row + dr[dir]][frontSeg.col + dc[dir]] == SquareType::HORIZONTAL_PARTITION) {
                 TravelerSegment temp = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
                 //Find the correct partion
                 int partitoinIndex = findPartition(temp, false);
                 // Move the partition, update traveler direction, and try to move again
                 movePartition(partitoinIndex);
-				// cout << partStatus[partitoinIndex].numMoves << endl;
                 // if status.rightStuck or status.leftStuck is true, then we are stuck
 				if(partStatus[partitoinIndex].rightStuck && partStatus[partitoinIndex].leftStuck) {
 					travelThread->stuck = true;
 				}
+
+                // if the traveler has moved 1000 times, then we are stuck
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 					travelThread->keepGoing = false;
 					break;
 
@@ -982,19 +960,25 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				}
             }
             else if(grid[frontSeg.row + dr[dir]][frontSeg.col + dc[dir]] == SquareType::VERTICAL_PARTITION) {
+
                 TravelerSegment temp = {frontSeg.row + dr[dir], frontSeg.col + dc[dir], newDir};
+
                 //Find the correct partion
                 int partitoinIndex = findPartition(temp, true);
+
                 // Move the partition, update traveler direction, and try to move again
                 movePartition(partitoinIndex);
+
                 // if status.downStuck or status.upStuck is true, then we are stuck
 				if(partStatus[partitoinIndex].upStuck && partStatus[partitoinIndex].downStuck) {
 					travelThread->stuck = true;
 				}
+
+                // if the partition has moved 1000 times, then we are stuck
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					travelThread->keepGoing = false;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 					break;
 				}
 				else {
@@ -1019,7 +1003,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
                     newSeg = handleObstacleCase(frontSeg, travelThread->index, dir);
 
                     // Keep the end segment
-
                     segments.push_back(endSeg);
                     travelThread->travelerLock.unlock();
 
@@ -1045,7 +1028,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
                 }
 
-
                 // Get the opposite direction of head, helps render correctly
 
                 Direction opposite = getOppositeDir(newSeg.dir);
@@ -1055,12 +1037,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 // Update the traveler's segment list'
                 segments[0] = newSeg;
                 travelThread->travelerLock.unlock();
-
-                // prints entire traveler
-                // for (auto seg: segments) {
-                //     cout << "ROW: " << seg.row << " COL: " << seg.col << " " << dirStr(seg.dir) << endl;
-                // }
-                // cout << endl;
 
                 //Check if we reahed the exit
                 if (grid[segments[0].row][segments[0].col] == SquareType::EXIT) {
@@ -1099,8 +1075,6 @@ void* moveTraveler(ThreadInfo* travelThread) {
 
     if (numTravelersDone == numTravelers) {
         cout << "All travelers finished moving" << endl;
-        // join all threads
-        //join_threads(info, numTravelers);
     }
 	return NULL;
 }
@@ -1137,10 +1111,17 @@ int findPartition(const TravelerSegment& currentSeg, bool isVertical) {
 
 void movePartition(int index)
 {
+
+    // copy the partition list
 	vector<GridPosition>& parts = partitionList[index].blockList;
+
+    // copy the partition status
 	partitionStatus& status = partStatus[index];
+
+    // get the direction of the partition
 	bool isVertical = partitionList[index].isVertical;
 
+    // get the front and end of the partition
 	GridPosition partFront = parts[0]; 
 	GridPosition partEnd = parts[parts.size() - 1]; 
 	if(isVertical) {
@@ -1163,8 +1144,6 @@ void movePartition(int index)
 		}
 		else {
 			// Move up
-			// cout << "moved up" << endl;
-			// cout << "test: " << partFront.row << endl;
 			if(partFront.row > 0 && grid[partFront.row-1][partFront.col] == SquareType::FREE_SQUARE) {
 				status.upStuck = false;
 				status.numMoves++;
@@ -1182,8 +1161,6 @@ void movePartition(int index)
 	else {
 		if(headsOrTails(engine)) {	
 			// Move Right
-			// cout << "moved right" << endl;
-			// cout << "test: " << partEnd.col << endl;
 			if(partEnd.col < numCols-1 && grid[partEnd.row][partEnd.col+1] == SquareType::FREE_SQUARE) {
 				status.rightStuck = false;
 				status.numMoves++;
@@ -1200,8 +1177,6 @@ void movePartition(int index)
 		}
 		else {
 			// Move Left
-			// cout << "moved left" << endl;
-			// cout << "test: " << partFront.col << endl;
 			if(partFront.col > 0 && grid[partFront.row][partFront.col-1] == SquareType::FREE_SQUARE) {
 				status.leftStuck = false;
 				status.numMoves++;
@@ -1220,12 +1195,20 @@ void movePartition(int index)
 
 void isPartitionStuck(int index)
 {
+    // copy the partition list
 	vector<GridPosition>& parts = partitionList[index].blockList;
+
+    // copy the partition status
 	partitionStatus& status = partStatus[index];
+
+    // get the direction of the partition
 	bool isVertical = partitionList[index].isVertical;
 
+    // get the front and end of the partition
 	GridPosition partFront = parts[0]; 
-	GridPosition partEnd = parts[parts.size() - 1]; 
+	GridPosition partEnd = parts[parts.size() - 1];
+
+    // check if the partition is vertical or horizontal
 	if(isVertical) {
 
 		// check if down is stuck
@@ -1239,9 +1222,6 @@ void isPartitionStuck(int index)
 			status.upStuck = false;
 		else 
 			status.upStuck = true;
-
-		// cout << "Status down " << status.downStuck << endl;
-		// cout << "Status up " << status.upStuck << endl;
 	}
 	else {
 
@@ -1256,7 +1236,5 @@ void isPartitionStuck(int index)
 			status.leftStuck = false;
 		else 
 			status.leftStuck = true;
-		// cout << "Status left " << status.leftStuck << endl;
-		// cout << "Status right " << status.rightStuck << endl;
 	}
 }

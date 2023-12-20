@@ -39,9 +39,7 @@ void generateWalls(void);
 void generatePartitions(void);
 
 void initializeUserData(int argc, char* argv[]);
-TravelerSegment moveInOpposite(const TravelerSegment& currentSeg, bool& canAdd);
 TravelerSegment handleObstacleCase(TravelerSegment& currentSeg);
-Direction atBorderCase(const TravelerSegment& currentSeg);
 Direction getOppositeDir(const Direction& dir);
 void togglePauseDrawing();
 
@@ -187,7 +185,9 @@ void drawTravelers(void)
 		}
     }
 
+    // Increment counter
     counter++;
+
     // Uncomment if you want to add delay
     this_thread::sleep_for(chrono::milliseconds(100));
 }
@@ -729,11 +729,12 @@ void generatePartitions(void)
 
 TravelerSegment handleObstacleCase(TravelerSegment& currentSeg) 
 {
+    // Create a new segment
 	TravelerSegment newSeg;
+
 	//We don't want to pick a direction towards the obstacle
 	const int dr[] = {1, 0, -1, 0};
 	const int dc[] = {0, -1, 0, 1};
-	// Try to find a free space in the new direction
 
     // Define a vector to store the available directions
     std::vector<int> availableDirections;
@@ -744,13 +745,16 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
     // Add the current square to the visited squares
     visitedSquares.insert({currentSeg.row, currentSeg.col});
 
+    // loop to check the 4 directions
     for (int i = 0; i < 4; ++i) {
+
         // Bounds check
         if (currentSeg.row + dr[i] < 0 || currentSeg.row + dr[i] >= numRows ||
             currentSeg.col + dc[i] < 0 || currentSeg.col + dc[i] >= numCols) {
             continue;
         }
 
+        // If the square is free or the exit, consider it
         if (grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::FREE_SQUARE ||
             grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT) {
 
@@ -771,6 +775,7 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
         }
     }
 
+    // If we are stuck, exit
     if (availableDirections.empty())
     {
         // We are stuck
@@ -778,9 +783,7 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
         exit(0);
     }
 
-    cout << "Available Directions: " << availableDirections.size() << endl;
-
-
+    // Pick a random direction from the available directions
     int i = availableDirections[rand() % availableDirections.size()];
     Direction newDir;
     switch (i)
@@ -799,6 +802,8 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
             break;
     }
 
+    // If the square is the exit, move to the exit
+    // else move in the new direction
     if(grid[currentSeg.row + dr[i]][currentSeg.col + dc[i]] == SquareType::EXIT)
     {
         newSeg = {currentSeg.row + dr[i], currentSeg.col + dc[i], newDir};
@@ -811,11 +816,13 @@ TravelerSegment handleObstacleCase(TravelerSegment& currentSeg)
         currentSeg = newSeg;
     }
 
-    cout << "Available Directions: " << availableDirections.size() << endl;
+    // Return the new segment
 	return newSeg;
 }
 
 Direction getOppositeDir(const Direction& dir) {
+
+    // Get the opposite direction based on the current direction
 	Direction opposite;
 	switch (dir)
 	{

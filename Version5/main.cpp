@@ -180,7 +180,7 @@ void updateMessages(void)
 	sprintf(message[1], "%d travelers solved the maze", numTravelersSolved);
 	sprintf(message[2], "%d travelers got stuck", numTravelersDone-numTravelersSolved);
 	sprintf(message[3], "Simulation run time: %ld s", time(NULL)-launchTime);
-	
+
 	//---------------------------------------------------------
 	//	This is the call that makes OpenGL render information
 	//	about the state of the simulation.
@@ -244,7 +244,7 @@ void speedupTravelers(void)
 {
 	//	decrease sleep time by 20%, but don't get too small
 	int newSleepTime = (8 * travelerSleepTime) / 10;
-	
+
 	if (newSleepTime > MIN_SLEEP_TIME)
 	{
 		travelerSleepTime = newSleepTime;
@@ -285,7 +285,7 @@ int main(int argc, char* argv[])
 
 	// Initialize user inputted data
 	initializeUserData(argc, argv);
-	
+
 	//	Now we can do application-level initialization
 	initializeApplication();
 
@@ -295,11 +295,11 @@ int main(int argc, char* argv[])
 	launchTime = time(NULL);
 
 	//	Now we enter the main loop of the program and to a large extend
-	//	"lose control" over its execution.  The callback functions that 
+	//	"lose control" over its execution.  The callback functions that
 	//	we set up earlier will be called when the corresponding event
 	//	occurs
 	glutMainLoop();
-	
+
 	//	Free allocated resource before leaving (not absolutely needed, but
 	//	just nicer.  Also, if you crash there, you know something is wrong
 	//	in your code.
@@ -309,14 +309,14 @@ int main(int argc, char* argv[])
 	for (int k=0; k<MAX_NUM_MESSAGES; k++)
 		delete []message[k];
 	delete []message;
-	
+
 	//	This will probably never be executed (the exit point will be in one of the
 	//	call back functions).
 	return 0;
 
 }
 
-void initializeUserData(int argc, char* argv[])  
+void initializeUserData(int argc, char* argv[])
 {
 	numRows = stoi(argv[1]);
 	numCols = stoi(argv[2]);
@@ -343,13 +343,13 @@ void initializeApplication(void)
 		grid[i] = new SquareType[numCols];
 		for (unsigned int j=0; j< numCols; j++)
 			grid[i][j] = SquareType::FREE_SQUARE;
-		
+
 	}
 
 	message = new char*[MAX_NUM_MESSAGES];
 	for (unsigned int k=0; k<MAX_NUM_MESSAGES; k++)
 		message[k] = new char[MAX_LENGTH_MESSAGE+1];
-		
+
 	//---------------------------------------------------------------
 	//	All the code below to be replaced/removed
 	//	I initialize the grid's pixels to have something to look at
@@ -411,7 +411,7 @@ void initializeApplication(void)
 
 		for (unsigned int c=0; c<4; c++)
 			traveler.rgba[c] = travelerColor[k][c];
-		
+
 		travelerList.push_back(traveler);
 	}
 
@@ -421,12 +421,12 @@ void initializeApplication(void)
 	delete []travelerColor;
 
 	for(int i =0 ; i<partitionList.size(); i++) {
-		cout << "part: " << i << " LIST: "; 
+		cout << "part: " << i << " LIST: ";
 		for(auto& block : partitionList[i].blockList) {
 			cout << " " << block.row << " " << block.col;
 		}
 		cout << endl;
-	}	
+	}
 	for(int j=0; j<partitionList.size(); j++) {
 		partStatus.push_back({0,false, false, false, false});
 	}
@@ -551,11 +551,11 @@ TravelerSegment newTravelerSegment(const TravelerSegment& currentSeg, bool& canA
 			else
 				canAdd = false;
 			break;
-		
+
 		default:
 			canAdd = false;
 	}
-	
+
 	return newSeg;
 }
 
@@ -571,12 +571,12 @@ void generateWalls(void)
 	const unsigned int MAX_NUM_TRIES = 20;
 
 	bool goodWall = true;
-	
+
 	//	Generate the vertical walls
 	for (unsigned int w=0; w< NUM_WALLS; w++)
 	{
 		goodWall = false;
-		
+
 		//	Case of a vertical wall
 		if (headsOrTails(engine))
 		{
@@ -585,12 +585,12 @@ void generateWalls(void)
 			{
 				//	let's be hopeful
 				goodWall = true;
-				
+
 				//	select a column index
 				unsigned int HSP = numCols/(NUM_WALLS/2+1);
 				unsigned int col = (1+ unsignedNumberGenerator(engine)%(NUM_WALLS/2-1))*HSP;
 				unsigned int length = MIN_WALL_LENGTH + unsignedNumberGenerator(engine)%(MAX_VERT_WALL_LENGTH-MIN_WALL_LENGTH+1);
-				
+
 				//	now a random start row
 				unsigned int startRow = unsignedNumberGenerator(engine)%(numRows-length);
 				for (unsigned int row=startRow, i=0; i<length && goodWall; i++, row++)
@@ -598,7 +598,7 @@ void generateWalls(void)
 					if (grid[row][col] != SquareType::FREE_SQUARE)
 						goodWall = false;
 				}
-				
+
 				//	if the wall first, add it to the grid
 				if (goodWall)
 				{
@@ -613,18 +613,18 @@ void generateWalls(void)
 		else
 		{
 			goodWall = false;
-			
+
 			//	I try a few times before giving up
 			for (unsigned int k=0; k<MAX_NUM_TRIES && !goodWall; k++)
 			{
 				//	let's be hopeful
 				goodWall = true;
-				
+
 				//	select a column index
 				unsigned int VSP = numRows/(NUM_WALLS/2+1);
 				unsigned int row = (1+ unsignedNumberGenerator(engine)%(NUM_WALLS/2-1))*VSP;
 				unsigned int length = MIN_WALL_LENGTH + unsignedNumberGenerator(engine)%(MAX_HORIZ_WALL_LENGTH-MIN_WALL_LENGTH+1);
-				
+
 				//	now a random start row
 				unsigned int startCol = unsignedNumberGenerator(engine)%(numCols-length);
 				for (unsigned int col=startCol, i=0; i<length && goodWall; i++, col++)
@@ -632,7 +632,7 @@ void generateWalls(void)
 					if (grid[row][col] != SquareType::FREE_SQUARE)
 						goodWall = false;
 				}
-				
+
 				//	if the wall first, add it to the grid
 				if (goodWall)
 				{
@@ -663,7 +663,7 @@ void generatePartitions(void)
 	for (unsigned int w=0; w< NUM_PARTS; w++)
 	{
 		goodPart = false;
-		
+
 		//	Case of a vertical partition
 		if (headsOrTails(engine))
 		{
@@ -672,12 +672,12 @@ void generatePartitions(void)
 			{
 				//	let's be hopeful
 				goodPart = true;
-				
+
 				//	select a column index
 				unsigned int HSP = numCols/(NUM_PARTS/2+1);
 				unsigned int col = (1+ unsignedNumberGenerator(engine)%(NUM_PARTS/2-2))*HSP + HSP/2;
 				unsigned int length = MIN_PARTITION_LENGTH + unsignedNumberGenerator(engine)%(MAX_VERT_PART_LENGTH-MIN_PARTITION_LENGTH+1);
-				
+
 				//	now a random start row
 				unsigned int startRow = unsignedNumberGenerator(engine)%(numRows-length);
 				for (unsigned int row=startRow, i=0; i<length && goodPart; i++, row++)
@@ -685,7 +685,7 @@ void generatePartitions(void)
 					if (grid[row][col] != SquareType::FREE_SQUARE)
 						goodPart = false;
 				}
-				
+
 				//	if the partition is possible,
 				if (goodPart)
 				{
@@ -706,18 +706,18 @@ void generatePartitions(void)
 		else
 		{
 			goodPart = false;
-			
+
 			//	I try a few times before giving up
 			for (unsigned int k=0; k<MAX_NUM_TRIES && !goodPart; k++)
 			{
 				//	let's be hopeful
 				goodPart = true;
-				
+
 				//	select a column index
 				unsigned int VSP = numRows/(NUM_PARTS/2+1);
 				unsigned int row = (1+ unsignedNumberGenerator(engine)%(NUM_PARTS/2-2))*VSP + VSP/2;
 				unsigned int length = MIN_PARTITION_LENGTH + unsignedNumberGenerator(engine)%(MAX_HORIZ_PART_LENGTH-MIN_PARTITION_LENGTH+1);
-				
+
 				//	now a random start row
 				unsigned int startCol = unsignedNumberGenerator(engine)%(numCols-length);
 				for (unsigned int col=startCol, i=0; i<length && goodPart; i++, col++)
@@ -725,7 +725,7 @@ void generatePartitions(void)
 					if (grid[row][col] != SquareType::FREE_SQUARE)
 						goodPart = false;
 				}
-				
+
 				//	if the wall first, add it to the grid and build SlidingPartition object
 				if (goodPart)
 				{
@@ -787,7 +787,7 @@ std::vector<int> getAvailableDirections(TravelerSegment& currentSeg, int travelI
                 if (!partStatus[partIndex].rightStuck || !partStatus[partIndex].leftStuck) {
                     availableDirections.push_back(i);
                 }
-            } 
+            }
 			else if (grid[nextSquare.first][nextSquare.second] == SquareType::VERTICAL_PARTITION) {
 				int partIndex = findPartition(temp, true);
 				// cout << "Part Index: " << partIndex << endl;
@@ -920,7 +920,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
                 travelThread->stuck = false;
             }
         }
-		
+
         if(!travelThread->stuck) {
             int dir = availableDirections[rand() % availableDirections.size()];
 
@@ -954,7 +954,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				}
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 					travelThread->keepGoing = false;
 
 					for(auto& seg : travelerList[travelThread->index].segmentList) {
@@ -981,7 +981,7 @@ void* moveTraveler(ThreadInfo* travelThread) {
 				if(partStatus[partitoinIndex].numMoves == MAX_PARTITION_THRESHOLD) {
 					cout << "traveler still cant go anywhere " <<  partStatus[partitoinIndex].numMoves << endl;
 					travelThread->keepGoing = false;
-					partStatus[partitoinIndex].numMoves = 0; 
+					partStatus[partitoinIndex].numMoves = 0;
 
 					for(auto& seg : travelerList[travelThread->index].segmentList) {
 						squareLocks[seg.row][seg.col]->unlock();
