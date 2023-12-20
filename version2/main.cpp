@@ -102,7 +102,7 @@ uniform_int_distribution<unsigned int> colGenerator;
 
 // Our Defined varaibles
 ThreadInfo* info;
-int growSegment = 5;
+int growSegment;
 vector<int> counters;
 bool pauseDrawing = false;
 int numTravelersSolved = 0;
@@ -237,8 +237,8 @@ int main(int argc, char* argv[])
 	//	to be the width (number of columns) and height (number of rows) of the
 	//	grid, the number of travelers, etc.
 	//	So far, I hard code-some values
-	numRows = 20;
-	numCols = 20;
+	//numRows = 20;
+	//numCols = 20;
 	numTravelers = 1;
 	numLiveThreads = 0;
 	numTravelersDone = 0;
@@ -284,10 +284,21 @@ int main(int argc, char* argv[])
 
 void initializeUserData(int argc, char* argv[])  
 {
-	numRows = stoi(argv[1]);
-	numCols = stoi(argv[2]);
-	numTravelers = stoi(argv[3]);
-	growSegment = stoi(argv[4]);
+    if (argc >= 4) {
+        numRows = stoi(argv[1]);
+        numCols = stoi(argv[2]);
+        numTravelers = stoi(argv[3]);
+
+        // Check if there is a fifth argument (growSegment)
+        if (argc >= 5) {
+            growSegment = stoi(argv[4]);
+        } else {
+            growSegment = INT_MAX;  // Default value
+        }
+    } else {
+        // Handle insufficient command-line arguments
+        throw std::invalid_argument("Insufficient command-line arguments");
+    }
 }
 //==================================================================================
 //
